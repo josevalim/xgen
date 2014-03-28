@@ -30,7 +30,19 @@ Run `mix deps.get` and you are good to go.
 
 ## GenServer
 
-...
+This tool provides a `GenServer` module which is quite similar to the stock GenServer provided by Erlang with two differences:
+
+* Both `start/3` and `start_link/3` expect the module name, the server arguments and a set of options. In order to register the server locally (or globally), an option need to be given:
+
+        GenServer.start_link(MyServer, [], local: MyServer)
+
+   Treating local and global as options feels more natural than the Erlang syntax:
+
+        :gen_server.start_link({ :local, MyServer }, MyServer, [], [])
+
+   In fact, this change is reflected on all other APIs below;
+
+* A developer can `use GenServer` to get a default implementation for all GenServer callbacks;
 
 ## GenEvent
 
