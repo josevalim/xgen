@@ -2,7 +2,7 @@ defmodule GenServer do
   @moduledoc """
   A behaviour module for implementing the server of a client-server relation.
 
-  A GenServer is a process as any other Elixir processes and it can be used
+  A GenServer is a process as any other Elixir process and it can be used
   to keep state, execute code asynchronously and so on. The advantage of using
   a generic server process (GenServer) implemented using this module is that it
   will have a standard set of interface functions and include functionality for
@@ -138,6 +138,16 @@ defmodule GenServer do
       # Now messages can be sent directly to MyStack
       GenServer.call(MyStack, :pop) #=> :hello
 
+  Once the server is started, the remaining functions in this module (`call/2`,
+  `cast/2` and friends) expects a server reference in one of the following
+  formats:
+
+  * a `pid`
+  * an `atom` if the server is locally registered
+  * `{ atom, node }` if the server is locally registered at another node
+  * `{ :global, term }` if the server is globally registered
+  * `{ :via, module, name }` if the server is registered through an alternative registry
+
   ## Client / Server APIs
 
   Although in the example above we have used `GenServer.start_link/2` and
@@ -190,9 +200,9 @@ defmodule GenServer do
 
   ## Learn more
 
-  In case you desire to learn more about GenServers, Elixir getting started
+  In case you desire to learn more about gen servers, Elixir getting started
   guides provide a tutorial-like introduction. The documentation and links
-  in Erlang may also provide extra insight.
+  in Erlang can also provide extra insight.
 
   * http://elixir-lang.org/getting_started/mix/1.html
   * http://www.erlang.org/doc/man/gen_server.html
@@ -209,7 +219,7 @@ defmodule GenServer do
                     global: term,
                     via: { module, name :: term },
                     timeout: timeout,
-                    spawn_opt: list]
+                    spawn_opt: Process.spawn_opt]
 
   @doc "debug options supported by the `start*` functions"
   @type debug :: [:trace | :log | :statistics | { :log_to_file, Path.t }]
@@ -218,7 +228,7 @@ defmodule GenServer do
   @type timeout :: non_neg_integer | :infinity
 
   @doc "The server reference"
-  @type server :: pid | atom | {atom, node} | {:global, term} | {:via, module, term}
+  @type server :: pid | atom | { atom, node } | { :global, term } | { :via, module, term }
 
   @doc false
   defmacro __using__(_) do

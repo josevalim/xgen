@@ -40,9 +40,9 @@ This tool provides a `GenServer` module which is quite similar to the stock GenS
 
         :gen_server.start_link({ :local, MyServer }, MyServer, [], [])
 
-   In fact, this change is reflected on all other APIs below;
-
 * A developer can `use GenServer` to get a default implementation for all GenServer callbacks;
+
+In fact, the differences above also apply to all other modules below, and as such we won't repeat them in the next modules.
 
 ## GenEvent
 
