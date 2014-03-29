@@ -30,7 +30,7 @@ Run `mix deps.get` and you are good to go.
 
 ## GenServer
 
-This tool provides a `GenServer` module which is quite similar to the stock GenServer provided by Erlang with two differences:
+This tool provides a `GenServer` module which is quite similar to the stock gen server provided by Erlang/OTP with two differences:
 
 * Both `start/3` and `start_link/3` expect the module name, the server arguments and a set of options. In order to register the server locally (or globally), an option need to be given:
 
@@ -46,7 +46,24 @@ In fact, the differences above also apply to all other modules below, and as suc
 
 ## GenEvent
 
-...
+The big change that comes with Elixir's GenEvent is that events are streamable:
+
+    { :ok, pid } = GenEvent.start_link()
+    stream = GenEvent.stream(pid)
+
+    # Spawn a new process to print the events
+    spawn_link fn ->
+      for event <- stream do
+        IO.puts "Got: #{IO.inspect(event)}"
+      end
+    end
+
+    GenEvent.notify(pid, :hello)
+    GenEvent.sync_notify(pid, :world)
+
+Streams are guaranteed to be safe since a subscripton is only started when streaming starts and, in case the streaming process dies, the handler is removed from the event manager.
+
+Streams also accept two options: `:timeout` which leads to an error if the handler does not receive a message in X miliseconds and `:duration` which controls how long the subscription should live. Streams can also be cancelled by calling `GenEvent.remove_handler(pid, stream)`.
 
 ## Supervisor
 

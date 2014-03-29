@@ -120,7 +120,7 @@ defmodule GenEvent do
 
   ## Streaming
 
-  `GenEvent`'s can be streamed from and streamed with the help of `stream/1`.
+  `GenEvent`'s can be streamed from and streamed with the help of `stream/2`.
   Here are some examples:
 
       stream = GenEvent.stream(pid)
@@ -131,12 +131,6 @@ defmodule GenEvent do
       # Print all other events
       for event <- stream do
         IO.inspect event
-      end
-
-  You can also push data into streams:
-
-      for msg <- messages, into: stream do
-        msg
       end
 
   ## Learn more
@@ -166,6 +160,19 @@ defmodule GenEvent do
 
   @doc "The timeout in miliseconds or :infinity"
   @type timeout :: non_neg_integer | :infinity
+
+  @doc """
+  Defines a `GenEvent` stream.
+
+  This is a struct returned by `stream/2`. The struct is public and
+  contains the following fields:
+
+  * `:manager` - the manager reference given to `GenEvent.stream/2`
+  * `:ref` - the event stream reference
+  * `:timeout` - the timeout in between events, defaults to `:infinity`
+  * `:duration` - the duration of the subscription, defaults to `:infinity`
+  """
+  defstruct manager: nil, ref: nil, timeout: :infinity, duration: :infinity
 
   @doc false
   defmacro __using__(_) do
@@ -216,7 +223,7 @@ defmodule GenEvent do
   section in the `GenServer` module docs.
 
   If the event manager is successfully created and initialized the function
-  returns `{:ok, pid}`, where pid is the pid of the server. If there already
+  returns `{ :ok, pid }`, where pid is the pid of the server. If there already
   exists a process with the specified server name the function returns
   `{ :error, { :already_started, pid } }` with the pid of that process.
   """
@@ -233,6 +240,23 @@ defmodule GenEvent do
   @spec start(options) :: on_start
   def start(options \\ []) do
     do_start(:nolink, options)
+  end
+
+  @doc """
+  Returns a stream that consumes and notifies events to the `manager`.
+
+  The stream is a `GenEvent` struct that implements the `Enumerable`
+  protocol. The supported options are:
+
+  * `:timeout` (Enumerable) - raises if no event arrives in X miliseconds;
+  * `:duration` (Enumerable) - only consume events during the X miliseconds
+    from the streaming start;
+  """
+  def stream(manager, options \\ []) do
+    %GenEvent{manager: manager,
+              ref: make_ref(),
+              timeout: Keyword.get(options, :timeout, :infinity),
+              duration: Keyword.get(options, :duration, :infinity)}
   end
 
   @doc """
@@ -258,14 +282,18 @@ defmodule GenEvent do
   the event manager sends a message `{ :gen_event_EXIT, handler, reason }`
   to the calling process. Reason is one of the following:
 
-  * `:normal` - if the event handler has been removed due to a call to `remove_handler/3`,
-                or `remove_handler` has been returned by a callback function;
+  * `:normal` - if the event handler has been removed due to a call to
+    `remove_handler/3`, or `remove_handler` has been returned by a callback
+    function;
 
-  * `:shutdown` - if the event handler has been removed because the event manager is terminating;
+  * `:shutdown` - if the event handler has been removed because the event
+    manager is terminating;
 
-  * `{ :swapped, new_handler, pid }` - if the process pid has replaced the event handler by another;
+  * `{ :swapped, new_handler, pid }` - if the process pid has replaced the
+    event handler by another;
 
-  * a term - if the event handler is removed due to an error. Which term depends on the error;
+  * a term - if the event handler is removed due to an error. Which term
+    depends on the error;
 
   """
   @spec add_handler(manager, handler, term, [link: boolean]) :: :ok | { :EXIT, term } | { :error, term }
@@ -316,6 +344,14 @@ defmodule GenEvent do
   end
 
   @doc """
+  Removes an event handler represented by a stream.
+  """
+  @spec remove_handler(t) :: term | { :error, term }
+  def remove_handler(%GenEvent{manager: manager, ref: ref}) do
+    :gen_event.delete_handler(manager, { Enumerable.GenEvent, ref }, :remove_handler)
+  end
+
+  @doc """
   Removes an event handler from the event `manager`.
 
   The event manager will call `terminate/2` to terminate the event handler
@@ -346,7 +382,7 @@ defmodule GenEvent do
   giving `link: true` as option. See `add_handler/4` for more information.
 
   If `init/1` in the second handler returns a correct value, this function
-  returns `:ok`. 
+  returns `:ok`.
   """
   @spec swap_handler(manager, handler, term, handler, term, [link: boolean]) :: :ok | { :error, term }
   def swap_handler(manager, handler1, args1, handler2, args2, options \\ []) do
@@ -385,5 +421,75 @@ defmodule GenEvent do
 
   defp do_start(mode, []) do
     :gen.start(:gen_event, mode, :"no callback module", [], [])
+  end
+end
+
+defimpl Enumerable, for: GenEvent do
+  use GenEvent
+
+  @doc false
+  def handle_event(event, { pid, ref } = state) do
+    send pid, { ref, event }
+    { :ok, state }
+  end
+
+  def reduce(%{manager: manager, ref: ref, timeout: timeout, duration: duration}, acc, fun) do
+    start_fun =
+      fn ->
+        add_handler(manager, ref)
+        add_timer(duration, ref)
+      end
+
+    next_fun =
+      fn timer_ref ->
+        receive do
+          { ^ref, event } -> { event, timer_ref }
+          { :gen_event_EXIT, { __MODULE__, ^ref }, _ } -> nil
+          { :timeout, ^ref } -> nil
+        after
+          timeout -> exit(:timeout)
+        end
+      end
+
+    stop_fun =
+      fn timer_ref ->
+        remove_timer(timer_ref, ref)
+        remove_handler(manager, ref)
+      end
+
+    Stream.resource(start_fun, next_fun, stop_fun).(acc, fun)
+  end
+
+  def count(_stream) do
+    { :error, __MODULE__ }
+  end
+
+  def member?(_stream, _item) do
+    { :error, __MODULE__ }
+  end
+
+  defp add_handler(manager, ref) do
+    :ok = :gen_event.add_sup_handler(manager, { __MODULE__, ref }, { self(), ref })
+  end
+
+  defp add_timer(:infinity, _ref), do: nil
+  defp add_timer(duration, ref) do
+    Process.send_after(self(), { :timeout, ref }, duration)
+  end
+
+  defp remove_timer(timer_ref, ref) do
+    if timer_ref && :erlang.cancel_timer(timer_ref) == false do
+      receive do
+        { :timeout, ^ref } -> :ok
+      after
+        0 -> :ok
+      end
+    end
+  end
+
+  defp remove_handler(manager, ref) do
+    :gen_event.delete_handler(manager, { __MODULE__, ref }, :remove_handler)
+  catch
+    :exit, :noproc -> :ok
   end
 end
