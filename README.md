@@ -46,7 +46,7 @@ In fact, the differences above also apply to all other modules below, and as suc
 
 ## GenEvent
 
-The big change that comes with Elixir's GenEvent is that events are streamable:
+The main difference that comes with Elixir's GenEvent is that events are streamable:
 
     { :ok, pid } = GenEvent.start_link()
     stream = GenEvent.stream(pid)
@@ -63,7 +63,9 @@ The big change that comes with Elixir's GenEvent is that events are streamable:
 
 Streams are guaranteed to be safe since a subscripton is only started when streaming starts and, in case the streaming process dies, the handler is removed from the event manager.
 
-Streams also accept two options: `:timeout` which leads to an error if the handler does not receive a message in X miliseconds and `:duration` which controls how long the subscription should live. Streams can also be cancelled by calling `GenEvent.remove_handler(pid, stream)`.
+Streams also accept two options: `:timeout` which leads to an error if the handler does not receive a message in X miliseconds and `:duration` which controls how long the subscription should live. Any stream can be cancelled by calling `GenEvent.remove_handler(stream)`.
+
+The benefit of such functionality is that events can be published and consumed without a need for callback modules which is useful for short-term/simple subscription schemas.
 
 ## Supervisor
 
