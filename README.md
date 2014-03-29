@@ -2,7 +2,7 @@
 
 When v0.13 was released, we outlined the next steps regarding integrating Elixir and Mix with OTP. The outlined steps were:
 
-1. Integrate applications configuration (provided by OTP) right into Mix;
+1. Integrate application configuration (provided by OTP) right into Mix;
 2. Provide an Elixir logger that knows how to print and format Elixir exceptions and stacktraces;
 3. Properly expose the functionality provided by Applications, Supervisors, GenServers and GenEvents and study how they can integrate with Elixir. For example, how to consume events from GenEvent as a stream of data?
 4. Study how patterns like tasks and agents can be integrated into the language, often picking up the lessons learned by libraries like e2 and functionality exposed by OTP itself;
@@ -14,7 +14,7 @@ This README provides installation instructions and the overall description of th
 
 ## Installation
 
-This project requires Elixir v0.13.0 forward. To install it, just add it to your `deps`:
+This project requires Elixir v0.13.0 or later. To install, just add it to your `deps`:
 
     def deps do
       [{:xgen, github: "josevalim/xgen"}]
@@ -32,7 +32,7 @@ Run `mix deps.get` and you are good to go.
 
 This tool provides a `GenServer` module which is quite similar to the stock gen server provided by Erlang/OTP with two differences:
 
-* Both `start/3` and `start_link/3` expect the module name, the server arguments and a set of options. In order to register the server locally (or globally), an option need to be given:
+* Both `start/3` and `start_link/3` expect the module name, the server arguments and a set of options. In order to register the server locally (or globally), an option needs to be given:
 
         GenServer.start_link(MyServer, [], local: MyServer)
 
@@ -42,7 +42,7 @@ This tool provides a `GenServer` module which is quite similar to the stock gen 
 
 * A developer can `use GenServer` to get a default implementation for all GenServer callbacks;
 
-In fact, the differences above also apply to all other modules below, and as such we won't repeat them in the next modules.
+In fact, the differences above apply to all other modules below, and as such we won't repeat them in the next modules.
 
 ## GenEvent
 
@@ -61,11 +61,11 @@ The main difference that comes with Elixir's GenEvent is that events are streama
     GenEvent.notify(pid, :hello)
     GenEvent.sync_notify(pid, :world)
 
-Streams are guaranteed to be safe since a subscripton is only started when streaming starts and, in case the streaming process dies, the handler is removed from the event manager.
+Streams are guaranteed to be safe since a subscription is only started when streaming starts and, in case the streaming process dies, the handler is removed from the event manager.
 
-Streams also accept two options: `:timeout` which leads to an error if the handler does not receive a message in X miliseconds and `:duration` which controls how long the subscription should live. Any stream can be cancelled by calling `GenEvent.remove_handler(stream)`.
+Streams also accept two options: `:timeout` which leads to an error if the handler does not receive a message in X milliseconds and `:duration` which controls how long the subscription should live. Any stream can be cancelled by calling `GenEvent.remove_handler(stream)`.
 
-The benefit of such functionality is that events can be published and consumed without a need for callback modules which is useful for short-term/simple subscription schemas.
+The benefit of such functionality is that events can be published and consumed without the need for callback modules, which is useful for short-term/simple subscription schemas.
 
 ## Supervisor
 
