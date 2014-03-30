@@ -441,16 +441,22 @@ defimpl Enumerable, for: GenEvent do
   def reduce(%{manager: manager, ref: ref, timeout: timeout, duration: duration}, acc, fun) do
     start_fun =
       fn ->
-        timer_ref = add_timer(duration)
-        add_handler(manager, ref, timer_ref)
-        timer_ref
+        case whereis(manager) do
+          nil ->
+            raise ArgumentError, message: "#{inspect(manager)} not registered"
+          pid ->
+            timer_ref = add_timer(duration)
+            add_handler(manager, ref, timer_ref)
+            { timer_ref, pid }
+        end
       end
 
     next_fun =
-      fn timer_ref ->
+      fn { timer_ref, pid } = acc ->
         receive do
-          { ^timer_ref, event } -> { event, timer_ref }
+          { ^timer_ref, event } -> { event, acc }
           { :gen_event_EXIT, { __MODULE__, { _, ^timer_ref } } , _ } -> nil
+          { :EXIT, ^pid, _ } -> nil
           { :timeout, ^timer_ref, __MODULE__ } -> nil
         after
           timeout -> exit(:timeout)
@@ -458,9 +464,9 @@ defimpl Enumerable, for: GenEvent do
       end
 
     stop_fun =
-      fn timer_ref ->
+      fn { timer_ref, pid } ->
         remove_timer(timer_ref, duration)
-        remove_handler(manager, ref, timer_ref)
+        remove_handler(pid, ref, timer_ref)
       end
 
     Stream.resource(start_fun, next_fun, stop_fun).(acc, fun)
@@ -472,6 +478,41 @@ defimpl Enumerable, for: GenEvent do
 
   def member?(_stream, _item) do
     { :error, __MODULE__ }
+  end
+
+  defp whereis(pid) when is_pid(pid), do: pid
+  defp whereis(name) when is_atom(name), do: Process.whereis(name)
+
+  defp whereis({ :global, name }) do
+    case :global.whereis_name(name) do
+      :undefined ->
+        nil
+      pid ->
+        pid
+    end
+  end
+
+  defp whereis({ name, node_name }) when node_name === node() do
+    Process.whereis(name)
+  end
+
+  defp whereis({ name, node_name }) when is_atom(name) and is_atom(node_name) do
+    case :rpc.call(node_name, :erlang, :whereis, [name]) do
+      pid when is_pid(pid) ->
+        pid
+      # :undefined or badrpc
+      _ ->
+        nil
+    end
+  end
+
+  defp whereis({ :via, mod, name }) when is_atom(mod) do
+    case mod.whereis_name(name) do
+      :undefined ->
+        nil
+      pid ->
+        pid
+    end
   end
 
   defp add_handler(manager, ref, timer_ref) do
@@ -494,9 +535,25 @@ defimpl Enumerable, for: GenEvent do
     end
   end
 
+  # If the manager is on another node can not catch the call because a netsplit
+  # might cause the response to appear in the mailbox later on. Therefore do the
+  # call in another process and wait for it to succeed or fail. If it fails the
+  # link to the manager is broken and the manager will remove the handler.
+  defp remove_handler(manager, ref, timer_ref) when node(manager) !== node() do
+    { _pid, mon_ref } = Process.spawn_monitor(:gen_event, :delete_handler,
+      [manager, { __MODULE__, { ref, timer_ref } }, :remove_handler])
+    receive do
+      { :DOWN, ^mon_ref, _, _, _ } -> :ok
+    end
+  end
+
+  # It's safe to catch the call for a local manager because the timeout is
+  # :infinity so an exit means the manager (and so the handler too) is down.
   defp remove_handler(manager, ref, timer_ref) do
-    :gen_event.delete_handler(manager, { __MODULE__, { ref, timer_ref } }, :remove_handler)
-  catch
-    :exit, :noproc -> :ok
+    try do
+      :gen_event.delete_handler(manager, { __MODULE__, { ref, timer_ref } }, :remove_handler)
+    catch
+      :exit, _ -> :ok
+    end
   end
 end
