@@ -344,11 +344,16 @@ defmodule GenEvent do
   end
 
   @doc """
-  Removes an event handler represented by a stream.
+  Removes all event handlers represented by a stream.
   """
   @spec remove_handler(t) :: term | { :error, term }
   def remove_handler(%GenEvent{manager: manager, ref: ref}) do
-    :gen_event.delete_handler(manager, { Enumerable.GenEvent, ref }, :remove_handler)
+    filter = fn({ Enumerable.GenEvent, { ref2, _ } }) when ref2 === ref -> true
+      (_other) -> false
+    end
+    :gen_event.which_handlers(manager)
+      |> Enum.filter(filter)
+      |> Enum.each(fn(id) -> :gen_event.delete_handler(manager, id, :remove_handler) end)
   end
 
   @doc """
@@ -436,16 +441,17 @@ defimpl Enumerable, for: GenEvent do
   def reduce(%{manager: manager, ref: ref, timeout: timeout, duration: duration}, acc, fun) do
     start_fun =
       fn ->
-        add_handler(manager, ref)
-        add_timer(duration, ref)
+        timer_ref = add_timer(duration)
+        add_handler(manager, ref, timer_ref)
+        timer_ref
       end
 
     next_fun =
       fn timer_ref ->
         receive do
-          { ^ref, event } -> { event, timer_ref }
-          { :gen_event_EXIT, { __MODULE__, ^ref }, _ } -> nil
-          { :timeout, ^ref } -> nil
+          { ^timer_ref, event } -> { event, timer_ref }
+          { :gen_event_EXIT, { __MODULE__, { _, ^timer_ref } } , _ } -> nil
+          { :timeout, ^timer_ref, __MODULE__ } -> nil
         after
           timeout -> exit(:timeout)
         end
@@ -453,8 +459,8 @@ defimpl Enumerable, for: GenEvent do
 
     stop_fun =
       fn timer_ref ->
-        remove_timer(timer_ref, ref)
-        remove_handler(manager, ref)
+        remove_timer(timer_ref, duration)
+        remove_handler(manager, ref, timer_ref)
       end
 
     Stream.resource(start_fun, next_fun, stop_fun).(acc, fun)
@@ -468,27 +474,28 @@ defimpl Enumerable, for: GenEvent do
     { :error, __MODULE__ }
   end
 
-  defp add_handler(manager, ref) do
-    :ok = :gen_event.add_sup_handler(manager, { __MODULE__, ref }, { self(), ref })
+  defp add_handler(manager, ref, timer_ref) do
+    :ok = :gen_event.add_sup_handler(manager, { __MODULE__, { ref, timer_ref } }, { self(), timer_ref })
   end
 
-  defp add_timer(:infinity, _ref), do: nil
-  defp add_timer(duration, ref) do
-    Process.send_after(self(), { :timeout, ref }, duration)
+  defp add_timer(:infinity), do: make_ref()
+  defp add_timer(duration) do
+    :erlang.start_timer(duration, self(), __MODULE__)
   end
 
-  defp remove_timer(timer_ref, ref) do
-    if timer_ref && :erlang.cancel_timer(timer_ref) == false do
+  defp remove_timer(_timer_ref, :infinity), do: nil
+  defp remove_timer(timer_ref, _duration) do
+    if :erlang.cancel_timer(timer_ref) == false do
       receive do
-        { :timeout, ^ref } -> :ok
+        { :timeout, ^timer_ref, __MODULE__ } -> :ok
       after
         0 -> :ok
       end
     end
   end
 
-  defp remove_handler(manager, ref) do
-    :gen_event.delete_handler(manager, { __MODULE__, ref }, :remove_handler)
+  defp remove_handler(manager, ref, timer_ref) do
+    :gen_event.delete_handler(manager, { __MODULE__, { ref, timer_ref } }, :remove_handler)
   catch
     :exit, :noproc -> :ok
   end

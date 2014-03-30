@@ -201,8 +201,32 @@ defmodule GenEventTest do
     assert_receive [1, 2, 3], @receive_timeout
 
     # Timeout message does not leak
-    ref = stream.ref
-    refute_received { :timeout, ^ref }
+    refute_received { :timeout, _, __MODULE__ }
+  end
+
+  test "stream/2 with parallel use and first finishing first" do
+    # Start a manager and subscribers
+    { :ok, pid } = GenEvent.start_link()
+    stream = GenEvent.stream(pid, duration: 200)
+
+    parent = self()
+    spawn_link fn -> send parent, { :take, Enum.take(stream, 3) } end
+    wait_for_handlers(pid, 1)
+    spawn_link fn -> send parent, { :to_list, Enum.to_list(stream) } end
+    wait_for_handlers(pid, 2)
+
+    # Notify the events for both handlers
+    for i <- 1..3 do
+      GenEvent.sync_notify(pid, i)
+    end
+    assert_receive { :take, [1, 2, 3] }, @receive_timeout
+
+    # Notify the events for to_list stream handler
+    for i <- 4..5 do
+      GenEvent.sync_notify(pid, i)
+    end
+    assert_receive { :to_list, [1, 2, 3, 4, 5] }, @receive_timeout
+
   end
 
   defp wait_for_handlers(pid, count) do
