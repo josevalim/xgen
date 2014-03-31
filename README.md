@@ -63,7 +63,7 @@ The main difference that comes with Elixir's GenEvent is that events are streama
 
 Streams are guaranteed to be safe since a subscription is only started when streaming starts and, in case the streaming process dies, the handler is removed from the event manager.
 
-Streams also accept two options: `:timeout` which leads to an error if the handler does not receive a message in X milliseconds and `:duration` which controls how long the subscription should live. Any stream can be cancelled by calling `GenEvent.remove_handler(stream)`.
+Streams also accept two options: `:timeout` which leads to an error if the handler does not receive a message in X milliseconds and `:duration` which controls how long the subscription should live. Streams can also be given ids, allowing them to be cancelled with `GenEvent.cancel_streams(stream)`.
 
 The benefit of such functionality is that events can be published and consumed without the need for callback modules, which is useful for short-term/simple subscription schemas.
 

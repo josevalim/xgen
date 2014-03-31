@@ -137,10 +137,10 @@ defmodule GenEventTest do
     assert_receive [1, 2, 3], @receive_timeout
   end
 
-  test "stream/2 with handler removal" do
+  test "stream/2 with cancel streams" do
     # Start a manager and subscribers
     { :ok, pid } = GenEvent.start_link()
-    stream = GenEvent.stream(pid)
+    stream = GenEvent.stream(pid, id: make_ref())
 
     parent = self()
     spawn_link fn -> send parent, Enum.take(stream, 5) end
@@ -151,7 +151,7 @@ defmodule GenEventTest do
       GenEvent.sync_notify(pid, i)
     end
 
-    GenEvent.remove_handler(stream)
+    GenEvent.cancel_streams(stream)
     assert_receive [1, 2, 3], @receive_timeout
     GenEvent.stop(pid)
   end

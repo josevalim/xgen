@@ -133,6 +133,9 @@ defmodule GenEvent do
         IO.inspect event
       end
 
+  A stream may also be given an id, which allows all streams with the given
+  id to be cancelled at any moment via `cancel_streams/1`.
+
   ## Learn more
 
   In case you desire to learn more about gen events, Elixir getting started
@@ -168,11 +171,11 @@ defmodule GenEvent do
   contains the following fields:
 
   * `:manager` - the manager reference given to `GenEvent.stream/2`
-  * `:ref` - the event stream reference
+  * `:id` - the event stream id for cancellation
   * `:timeout` - the timeout in between events, defaults to `:infinity`
   * `:duration` - the duration of the subscription, defaults to `:infinity`
   """
-  defstruct manager: nil, ref: nil, timeout: :infinity, duration: :infinity
+  defstruct manager: nil, id: nil, timeout: :infinity, duration: :infinity
 
   @doc false
   defmacro __using__(_) do
@@ -248,13 +251,15 @@ defmodule GenEvent do
   The stream is a `GenEvent` struct that implements the `Enumerable`
   protocol. The supported options are:
 
+  * `:id` - an id to identify all live stream instances. When an `:id` is given,
+    existing streams can be called with via `cancel_streams`;
   * `:timeout` (Enumerable) - raises if no event arrives in X milliseconds;
   * `:duration` (Enumerable) - only consume events during the X milliseconds
     from the streaming start;
   """
   def stream(manager, options \\ []) do
     %GenEvent{manager: manager,
-              ref: make_ref(),
+              id: Keyword.get(options, :id),
               timeout: Keyword.get(options, :timeout, :infinity),
               duration: Keyword.get(options, :duration, :infinity)}
   end
@@ -283,7 +288,7 @@ defmodule GenEvent do
   to the calling process. Reason is one of the following:
 
   * `:normal` - if the event handler has been removed due to a call to
-    `remove_handler/3`, or `remove_handler` has been returned by a callback
+    `remove_handler/3`, or `:remove_handler` has been returned by a callback
     function;
 
   * `:shutdown` - if the event handler has been removed because the event
@@ -344,16 +349,26 @@ defmodule GenEvent do
   end
 
   @doc """
-  Removes all event handlers represented by a stream.
+  Cancels all streams currently running with the given `:id`.
+
+  In order for a stream to be cancelled, an `:id` must be passed
+  when the stream is created via `stream/2`. Passing a stream without
+  an id leads to an argument error.
   """
-  @spec remove_handler(t) :: term | { :error, term }
-  def remove_handler(%GenEvent{manager: manager, ref: ref}) do
-    filter = fn({ Enumerable.GenEvent, { ref2, _ } }) when ref2 === ref -> true
-      (_other) -> false
+  @spec cancel_streams(t) :: :ok
+  def cancel_streams(%GenEvent{id: nil}) do
+    raise ArgumentError, "cannot cancel streams without an id"
+  end
+
+  def cancel_streams(%GenEvent{manager: manager, id: id}) do
+    handlers = :gen_event.which_handlers(manager)
+
+    for { Enumerable.GenEvent, { handler_id, _ } } = ref <- handlers,
+        handler_id === id do
+      :gen_event.delete_handler(manager, ref, :remove_handler)
     end
-    :gen_event.which_handlers(manager)
-      |> Enum.filter(filter)
-      |> Enum.each(fn(id) -> :gen_event.delete_handler(manager, id, :remove_handler) end)
+
+    :ok
   end
 
   @doc """
@@ -438,24 +453,24 @@ defimpl Enumerable, for: GenEvent do
     { :ok, state }
   end
 
-  def reduce(%{manager: manager, ref: ref, timeout: timeout, duration: duration}, acc, fun) do
+  def reduce(%{manager: manager, id: id, timeout: timeout, duration: duration}, acc, fun) do
     start_fun =
       fn ->
-        case whereis(manager) do
-          nil ->
-            raise ArgumentError, message: "#{inspect(manager)} not registered"
-          pid ->
-            timer_ref = add_timer(duration)
-            add_handler(manager, ref, timer_ref)
-            { timer_ref, pid }
+        if pid = whereis(manager) do
+          timer_ref = add_timer(duration)
+          cancel_ref = cancel_ref(id, timer_ref)
+          add_handler(manager, cancel_ref, timer_ref)
+          { timer_ref, cancel_ref, pid }
+        else
+          raise ArgumentError, message: "#{inspect(manager)} not registered"
         end
       end
 
     next_fun =
-      fn { timer_ref, pid } = acc ->
+      fn { timer_ref, cancel_ref, pid } = acc ->
         receive do
           { ^timer_ref, event } -> { event, acc }
-          { :gen_event_EXIT, { __MODULE__, { _, ^timer_ref } } , _ } -> nil
+          { :gen_event_EXIT, { __MODULE__, ^cancel_ref } , _ } -> nil
           { :EXIT, ^pid, _ } -> nil
           { :timeout, ^timer_ref, __MODULE__ } -> nil
         after
@@ -464,9 +479,9 @@ defimpl Enumerable, for: GenEvent do
       end
 
     stop_fun =
-      fn { timer_ref, pid } ->
+      fn { timer_ref, cancel_ref, pid } ->
         remove_timer(timer_ref, duration)
-        remove_handler(pid, ref, timer_ref)
+        remove_handler(pid, cancel_ref)
       end
 
     Stream.resource(start_fun, next_fun, stop_fun).(acc, fun)
@@ -485,10 +500,8 @@ defimpl Enumerable, for: GenEvent do
 
   defp whereis({ :global, name }) do
     case :global.whereis_name(name) do
-      :undefined ->
-        nil
-      pid ->
-        pid
+      :undefined -> nil
+      pid -> pid
     end
   end
 
@@ -498,25 +511,23 @@ defimpl Enumerable, for: GenEvent do
 
   defp whereis({ name, node_name }) when is_atom(name) and is_atom(node_name) do
     case :rpc.call(node_name, :erlang, :whereis, [name]) do
-      pid when is_pid(pid) ->
-        pid
-      # :undefined or badrpc
-      _ ->
-        nil
+      pid when is_pid(pid) -> pid
+      _ -> nil # :undefined or :badrpc
     end
   end
 
   defp whereis({ :via, mod, name }) when is_atom(mod) do
     case mod.whereis_name(name) do
-      :undefined ->
-        nil
-      pid ->
-        pid
+      :undefined -> nil
+      pid -> pid
     end
   end
 
-  defp add_handler(manager, ref, timer_ref) do
-    :ok = :gen_event.add_sup_handler(manager, { __MODULE__, { ref, timer_ref } }, { self(), timer_ref })
+  defp cancel_ref(nil, timer_ref), do: timer_ref
+  defp cancel_ref(id, timer_ref),  do: { id, timer_ref }
+
+  defp add_handler(manager, cancel_ref, timer_ref) do
+    :ok = :gen_event.add_sup_handler(manager, { __MODULE__, cancel_ref }, { self(), timer_ref })
   end
 
   defp add_timer(:infinity), do: make_ref()
@@ -535,23 +546,25 @@ defimpl Enumerable, for: GenEvent do
     end
   end
 
-  # If the manager is on another node can not catch the call because a netsplit
-  # might cause the response to appear in the mailbox later on. Therefore do the
-  # call in another process and wait for it to succeed or fail. If it fails the
-  # link to the manager is broken and the manager will remove the handler.
-  defp remove_handler(manager, ref, timer_ref) when node(manager) !== node() do
+  # If the manager is on another node, we cannot catch the call
+  # because a netsplit might cause the response to appear in the
+  # mailbox later on. Therefore, we do the call in another process
+  # and wait for it to succeed or fail. If it fails the link to the
+  # manager is broken and the manager will remove the handler.
+  defp remove_handler(manager, cancel_ref) when node(manager) !== node() do
     { _pid, mon_ref } = Process.spawn_monitor(:gen_event, :delete_handler,
-      [manager, { __MODULE__, { ref, timer_ref } }, :remove_handler])
+      [manager, { __MODULE__, cancel_ref }, :remove_handler])
     receive do
       { :DOWN, ^mon_ref, _, _, _ } -> :ok
     end
   end
 
-  # It's safe to catch the call for a local manager because the timeout is
-  # :infinity so an exit means the manager (and so the handler too) is down.
-  defp remove_handler(manager, ref, timer_ref) do
+  # It's safe to catch the call for a local manager because the timeout
+  # is :infinity so an exit means the manager (and so the handler too)
+  # is down.
+  defp remove_handler(manager, cancel_ref) do
     try do
-      :gen_event.delete_handler(manager, { __MODULE__, { ref, timer_ref } }, :remove_handler)
+      :gen_event.delete_handler(manager, { __MODULE__, cancel_ref }, :remove_handler)
     catch
       :exit, _ -> :ok
     end
