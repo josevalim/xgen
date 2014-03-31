@@ -456,30 +456,29 @@ defimpl Enumerable, for: GenEvent do
   def reduce(%{manager: manager, id: id, timeout: timeout, duration: duration}, acc, fun) do
     start_fun =
       fn ->
-        timer_ref = add_timer(duration)
-        { sub_pid, sub_ref } = add_handler(manager, id, timer_ref)
+        { mon_pid, mon_ref } = add_handler(manager, id, duration)
+        send mon_pid, { :UP, mon_ref, self() }
+
         receive do
-          { :UP, ^timer_ref } -> { timer_ref, sub_ref, sub_pid }
-          { :DOWN, ^sub_ref, _, _, reason } -> exit(reason)
+          { :UP, ^mon_ref, ^mon_pid } -> { mon_ref, mon_pid }
+          { :DOWN, ^mon_ref, _, _, reason } -> exit(reason)
         end
       end
 
     next_fun =
-      fn { timer_ref, sub_ref, _ } = acc ->
+      fn { mon_ref, _ } = acc ->
         receive do
-          { ^timer_ref, event } -> { event, acc }
-          { :DOWN, ^sub_ref, _, _, _ } -> nil
-          { :timeout, ^timer_ref, __MODULE__ } -> nil
+          { ^mon_ref, event } -> { event, acc }
+          { :DOWN, ^mon_ref, _, _, _ } -> nil
         after
           timeout -> exit(:timeout)
         end
       end
 
     stop_fun =
-      fn { timer_ref, sub_ref, sub_pid } ->
-        remove_timer(timer_ref, duration)
-        remove_handler(sub_ref, sub_pid)
-        flush_events(timer_ref)
+      fn { mon_ref, mon_pid } ->
+        remove_handler(mon_ref, mon_pid)
+        flush_events(mon_ref)
       end
 
     Stream.resource(start_fun, next_fun, stop_fun).(acc, fun)
@@ -493,50 +492,38 @@ defimpl Enumerable, for: GenEvent do
     { :error, __MODULE__ }
   end
 
-  defp add_handler(manager, id, timer_ref) do
+  defp add_handler(manager, id, duration) do
     parent = self()
-    cancel = cancel_ref(id, timer_ref)
 
     # The subscription is managed by another process, that dies if
     # the handler dies, and is killed when there is a need to remove
     # the subscription.
     Process.spawn_monitor(fn ->
-      :ok = :gen_event.add_sup_handler(manager, { __MODULE__, cancel }, { parent, timer_ref })
-      send(parent, { :UP, timer_ref })
+      mon_ref = receive do: ({ :UP, ref, ^parent } -> ref)
+      cancel  = cancel_ref(id, mon_ref)
+
+      :ok = :gen_event.add_sup_handler(manager, { __MODULE__, cancel }, { parent, mon_ref })
+      send(parent, { :UP, mon_ref, self() })
 
       receive do
         { :gen_event_EXIT, { __MODULE__, ^cancel }, _ } -> :ok
+      after
+        duration -> :ok
       end
     end)
-  end
-
-  defp add_timer(:infinity), do: make_ref()
-  defp add_timer(duration) do
-    :erlang.start_timer(duration, self(), __MODULE__)
   end
 
   defp cancel_ref(nil, timer_ref), do: timer_ref
   defp cancel_ref(id, timer_ref),  do: { id, timer_ref }
 
-  defp remove_timer(_timer_ref, :infinity), do: nil
-  defp remove_timer(timer_ref, _duration) do
-    if :erlang.cancel_timer(timer_ref) == false do
-      receive do
-        { :timeout, ^timer_ref, __MODULE__ } -> :ok
-      after
-        0 -> :ok
-      end
-    end
+  defp remove_handler(mon_ref, mon_pid) do
+    Process.demonitor(mon_ref, [:flush])
+    Process.exit(mon_pid, :shutdown)
   end
 
-  defp remove_handler(sub_ref, sub_pid) do
-    Process.demonitor(sub_ref, [:flush])
-    Process.exit(sub_pid, :shutdown)
-  end
-
-  defp flush_events(timer_ref) do
+  defp flush_events(mon_ref) do
     receive do
-      { ^timer_ref, _ } -> flush_events(timer_ref)
+      { ^mon_ref, _ } -> flush_events(mon_ref)
     after
       0 -> :ok
     end
