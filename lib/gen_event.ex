@@ -479,6 +479,7 @@ defimpl Enumerable, for: GenEvent do
       fn { timer_ref, sub_ref, sub_pid } ->
         remove_timer(timer_ref, duration)
         remove_handler(sub_ref, sub_pid)
+        flush_events(timer_ref)
       end
 
     Stream.resource(start_fun, next_fun, stop_fun).(acc, fun)
@@ -531,5 +532,13 @@ defimpl Enumerable, for: GenEvent do
   defp remove_handler(sub_ref, sub_pid) do
     Process.demonitor(sub_ref, [:flush])
     Process.exit(sub_pid, :shutdown)
+  end
+
+  defp flush_events(timer_ref) do
+    receive do
+      { ^timer_ref, _ } -> flush_events(timer_ref)
+    after
+      0 -> :ok
+    end
   end
 end
