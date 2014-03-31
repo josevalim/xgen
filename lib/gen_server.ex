@@ -6,12 +6,12 @@ defmodule GenServer do
   to keep state, execute code asynchronously and so on. The advantage of using
   a generic server process (GenServer) implemented using this module is that it
   will have a standard set of interface functions and include functionality for
-  tracing and error reporting. It will also fit into an supervision tree.
+  tracing and error reporting. It will also fit into a supervision tree.
 
   ## Example
 
-  The GenServer behaviour abstracts the common client-server interaction. The
-  developer is only required to implement the callbacks and functionality he's
+  The GenServer behaviour abstracts the common client-server interaction.
+  Developer are only required to implement the callbacks and functionality they are
   interested in.
 
   Let's start with a code example and then explore the available callbacks.
@@ -60,7 +60,7 @@ defmodule GenServer do
   interact with the server by sending two types of messages. *cast**
   messages are asynchronous while **call** ones are synchronous.
 
-  Every time you do a `GenServer.call/2`, the client will sned a message
+  Every time you do a `GenServer.call/2`, the client will send a message
   that must be handled by the `handle_call/3` callback in the GenServer.
   A `cast/2` message must be handled by `handle_cast/2`.
 
@@ -80,7 +80,7 @@ defmodule GenServer do
         :ignore
         { :stop, reason }
 
-  * `handle_call(msg, {from, ref}, state)` and `handle_cast(msg, state)` -
+  * `handle_call(msg, { from, ref }, state)` and `handle_cast(msg, state)` -
     invoked to handle call (sync) and cast (async) messages.
 
     It must return:
@@ -276,7 +276,7 @@ defmodule GenServer do
   This is often used to start the `GenServer` as part of a supervision tree.
 
   Once the server is started, it calls the `init/1` function in the given `module`
-  passing the given `args` to initialize it. To ensure a scynchronized start-up
+  passing the given `args` to initialize it. To ensure a synchronized start-up
   procedure, this function does not return until `init/1` has returned.
 
   ## Options
@@ -284,7 +284,7 @@ defmodule GenServer do
   The `:local`, `:global` and `:via` options are used for name registered as
   described in the module documentation. If the option `:timeout` option is
   present, the server is allowed to spend the given milliseconds initializing or
-  it will be terminated and the start function will return `{:error, :timeout}`.
+  it will be terminated and the start function will return `{ :error, :timeout }`.
 
   If the option `:debug` is present, the corresponding function in the
   [`:sys` module](http://www.erlang.org/doc/man/sys.html) will be invoked.
@@ -295,7 +295,7 @@ defmodule GenServer do
   ## Return values
 
   If the server is successfully created and initialized the function returns
-  `{:ok, pid}`, where pid is the pid of the server. If there already exists a
+  `{ :ok, pid }`, where pid is the pid of the server. If there already exists a
   process with the specified server name the function returns
   `{ :error, { :already_started, pid } }` with the pid of that process.
 
@@ -363,7 +363,7 @@ defmodule GenServer do
   @doc """
   Sends an asynchronous request to the `server`.
 
-  This function returns `:ok immediately, ignoring if the destination node
+  This function returns `:ok` immediately, ignoring if the destination node
   or server does not exist. `handle_cast/2` will be called on the server
   to handle the request.
 
@@ -373,7 +373,7 @@ defmodule GenServer do
   defdelegate cast(server, request), to: :gen_server
 
   @doc """
-  Casts all servers locally regustered as `name` at the specified nodes.
+  Casts all servers locally registered as `name` at the specified nodes.
 
   The function returns immediately and ignores nodes that do not exist, or where the
   server name does not exist.
