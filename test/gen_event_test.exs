@@ -229,6 +229,50 @@ defmodule GenEventTest do
 
   end
 
+  test "stream/2 with manager killed and trap_exit" do
+    # Start a manager and subscribers
+    { :ok, pid } = GenEvent.start_link()
+    stream = GenEvent.stream(pid)
+
+    parent = self()
+    spawn_link fn ->
+      Process.flag(:trap_exit, true)
+      send parent, Enum.to_list(stream)
+    end
+    wait_for_handlers(pid, 1)
+
+    trap = Process.flag(:trap_exit, true)
+    Process.exit(pid, :kill)
+    assert_receive { :EXIT, ^pid, :killed }, @receive_timeout
+    Process.flag(:trap_exit, trap)
+
+    assert_receive [], @receive_timeout
+  end
+
+  test "stream/2 with manager unregistered" do
+    # Start a manager and subscribers
+    { :ok, pid } = GenEvent.start_link(local: :stream_unreg)
+    stream = GenEvent.stream(:stream_unreg)
+
+    parent = self()
+    spawn_link fn ->
+      send parent, Enum.take(stream, 5)
+      :timer.sleep(@receive_timeout * 2)
+    end
+    wait_for_handlers(pid, 1)
+
+    Process.unregister(:stream_unreg)
+
+    # Notify the events
+    for i <- 1..5 do
+      GenEvent.sync_notify(pid, i)
+    end
+    assert_receive [1, 2, 3, 4, 5], @receive_timeout
+
+    assert GenEvent.which_handlers(pid) === []
+
+  end
+
   defp wait_for_handlers(pid, count) do
     unless length(GenEvent.which_handlers(pid)) == count do
       wait_for_handlers(pid, count)
