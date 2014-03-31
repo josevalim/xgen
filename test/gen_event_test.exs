@@ -120,6 +120,20 @@ defmodule GenEventTest do
     assert_receive :timeout, @receive_timeout
   end
 
+  test "stream/2 with error/timeout on subscription" do
+    # Start a manager
+    { :ok, pid } = GenEvent.start_link()
+
+    # Start a subscriber with timeout
+    child = spawn fn -> Enum.to_list(GenEvent.stream(pid)) end
+    wait_for_handlers(pid, 1)
+
+    # Kill and wait until we have 0 handlers
+    Process.exit(child, :kill)
+    wait_for_handlers(pid, 0)
+    GenEvent.stop(pid)
+  end
+
   test "stream/2 with manager stop" do
     # Start a manager and subscribers
     { :ok, pid } = GenEvent.start_link()
@@ -225,8 +239,8 @@ defmodule GenEventTest do
     for i <- 4..5 do
       GenEvent.sync_notify(pid, i)
     end
-    assert_receive { :to_list, [1, 2, 3, 4, 5] }, @receive_timeout
 
+    assert_receive { :to_list, [1, 2, 3, 4, 5] }, @receive_timeout
   end
 
   test "stream/2 with manager killed and trap_exit" do

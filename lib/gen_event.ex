@@ -499,14 +499,24 @@ defimpl Enumerable, for: GenEvent do
     # the handler dies, and is killed when there is a need to remove
     # the subscription.
     Process.spawn_monitor(fn ->
-      mon_ref = receive do: ({ :UP, ref, ^parent } -> ref)
-      cancel  = cancel_ref(id, mon_ref)
+      # Monitor the parent as it may die any time
+      parent_ref = Process.monitor(parent)
 
+      # Receive the notification from the parent, unless it died
+      mon_ref = receive do
+        { :UP, ref, ^parent } -> ref
+        { :DOWN, ^parent_ref, _, _, _ } -> exit(:normal)
+      end
+
+      cancel = cancel_ref(id, mon_ref)
       :ok = :gen_event.add_sup_handler(manager, { __MODULE__, cancel }, { parent, mon_ref })
+
+      # Now the handler is registered, tell the parent we are good to go
       send(parent, { :UP, mon_ref, self() })
 
       receive do
         { :gen_event_EXIT, { __MODULE__, ^cancel }, _ } -> :ok
+        { :DOWN, ^parent_ref, _, _, _ } -> :ok
       after
         duration -> :ok
       end
