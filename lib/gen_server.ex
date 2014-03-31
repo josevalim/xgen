@@ -210,10 +210,10 @@ defmodule GenServer do
   * http://learnyousomeerlang.com/clients-and-servers
   """
 
-  @doc "Return values of `start*` functions"
+  @typedoc "Return values of `start*` functions"
   @type on_start :: { :ok, pid } | :ignore | { :error, { :already_started, pid } | term }
 
-  @doc "Options used by the `start*` functions"
+  @typedoc "Options used by the `start*` functions"
   @type options :: [debug: debug,
                     local: atom,
                     global: term,
@@ -221,13 +221,13 @@ defmodule GenServer do
                     timeout: timeout,
                     spawn_opt: Process.spawn_opt]
 
-  @doc "debug options supported by the `start*` functions"
+  @typedoc "debug options supported by the `start*` functions"
   @type debug :: [:trace | :log | :statistics | { :log_to_file, Path.t }]
 
-  @doc "The timeout in miliseconds or :infinity"
+  @typedoc "The timeout in miliseconds or :infinity"
   @type timeout :: non_neg_integer | :infinity
 
-  @doc "The server reference"
+  @typedoc "The server reference"
   @type server :: pid | atom | { atom, node } | { :global, term } | { :via, module, term }
 
   @doc false

@@ -144,21 +144,21 @@ defmodule GenEvent do
   * http://learnyousomeerlang.com/event-handlers
   """
 
-  @doc "Return values of `start*` functions"
+  @typedoc "Return values of `start*` functions"
   @type on_start :: { :ok, pid } | { :error, { :already_started, pid } }
 
-  @doc "Options used by the `start*` functions"
+  @typedoc "Options used by the `start*` functions"
   @type options :: [local: atom,
                     global: term,
                     via: { module, name :: term }]
 
-  @doc "The event manager reference"
+  @typedoc "The event manager reference"
   @type manager :: pid | atom | { atom, node } | { :global, term } | { :via, module, term }
 
-  @doc "Supported values for new handlers"
+  @typedoc "Supported values for new handlers"
   @type handler :: module | { module, term }
 
-  @doc "The timeout in miliseconds or :infinity"
+  @typedoc "The timeout in miliseconds or :infinity"
   @type timeout :: non_neg_integer | :infinity
 
   @doc """
