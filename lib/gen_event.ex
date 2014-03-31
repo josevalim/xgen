@@ -248,8 +248,8 @@ defmodule GenEvent do
   The stream is a `GenEvent` struct that implements the `Enumerable`
   protocol. The supported options are:
 
-  * `:timeout` (Enumerable) - raises if no event arrives in X miliseconds;
-  * `:duration` (Enumerable) - only consume events during the X miliseconds
+  * `:timeout` (Enumerable) - raises if no event arrives in X milliseconds;
+  * `:duration` (Enumerable) - only consume events during the X milliseconds
     from the streaming start;
   """
   def stream(manager, options \\ []) do
@@ -309,7 +309,7 @@ defmodule GenEvent do
 
   The event manager will call `handle_event/2` for each installed event handler.
 
-  `notify` is aynchronous and will return immediately afte the notification is
+  `notify` is asynchronous and will return immediately after the notification is
   sent. `notify` will not fail even if the specified event manager does not exist,
   unless it is specified as `name` (atom).
   """
@@ -377,7 +377,7 @@ defmodule GenEvent do
   return value of calling `terminate/2` in the old handler. This makes it
   possible to transfer information from one handler to another.
 
-  The new handler will be added even if the the specified old event handler
+  The new handler will be added even if the specified old event handler
   is not installed in which case `term = :error` or if the handler fails to
   terminate with a given reason.
 
