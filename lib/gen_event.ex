@@ -456,22 +456,19 @@ defimpl Enumerable, for: GenEvent do
   def reduce(%{manager: manager, id: id, timeout: timeout, duration: duration}, acc, fun) do
     start_fun =
       fn ->
-        if pid = whereis(manager) do
-          timer_ref = add_timer(duration)
-          cancel_ref = cancel_ref(id, timer_ref)
-          add_handler(manager, cancel_ref, timer_ref)
-          { timer_ref, cancel_ref, pid }
-        else
-          raise ArgumentError, message: "#{inspect(manager)} not registered"
+        timer_ref = add_timer(duration)
+        { sub_pid, sub_ref } = add_handler(manager, id, timer_ref)
+        receive do
+          { :UP, ^timer_ref } -> { timer_ref, sub_ref, sub_pid }
+          { :DOWN, ^sub_ref, _, _, reason } -> exit(reason)
         end
       end
 
     next_fun =
-      fn { timer_ref, cancel_ref, pid } = acc ->
+      fn { timer_ref, sub_ref, _ } = acc ->
         receive do
           { ^timer_ref, event } -> { event, acc }
-          { :gen_event_EXIT, { __MODULE__, ^cancel_ref } , _ } -> nil
-          { :EXIT, ^pid, _ } -> nil
+          { :DOWN, ^sub_ref, _, _, _ } -> nil
           { :timeout, ^timer_ref, __MODULE__ } -> nil
         after
           timeout -> exit(:timeout)
@@ -479,9 +476,9 @@ defimpl Enumerable, for: GenEvent do
       end
 
     stop_fun =
-      fn { timer_ref, cancel_ref, pid } ->
+      fn { timer_ref, sub_ref, sub_pid } ->
         remove_timer(timer_ref, duration)
-        remove_handler(pid, cancel_ref)
+        remove_handler(sub_ref, sub_pid)
       end
 
     Stream.resource(start_fun, next_fun, stop_fun).(acc, fun)
@@ -495,45 +492,30 @@ defimpl Enumerable, for: GenEvent do
     { :error, __MODULE__ }
   end
 
-  defp whereis(pid) when is_pid(pid), do: pid
-  defp whereis(name) when is_atom(name), do: Process.whereis(name)
+  defp add_handler(manager, id, timer_ref) do
+    parent = self()
+    cancel = cancel_ref(id, timer_ref)
 
-  defp whereis({ :global, name }) do
-    case :global.whereis_name(name) do
-      :undefined -> nil
-      pid -> pid
-    end
-  end
+    # The subscription is managed by another process, that dies if
+    # the handler dies, and is killed when there is a need to remove
+    # the subscription.
+    Process.spawn_monitor(fn ->
+      :ok = :gen_event.add_sup_handler(manager, { __MODULE__, cancel }, { parent, timer_ref })
+      send(parent, { :UP, timer_ref })
 
-  defp whereis({ name, node_name }) when node_name === node() do
-    Process.whereis(name)
-  end
-
-  defp whereis({ name, node_name }) when is_atom(name) and is_atom(node_name) do
-    case :rpc.call(node_name, :erlang, :whereis, [name]) do
-      pid when is_pid(pid) -> pid
-      _ -> nil # :undefined or :badrpc
-    end
-  end
-
-  defp whereis({ :via, mod, name }) when is_atom(mod) do
-    case mod.whereis_name(name) do
-      :undefined -> nil
-      pid -> pid
-    end
-  end
-
-  defp cancel_ref(nil, timer_ref), do: timer_ref
-  defp cancel_ref(id, timer_ref),  do: { id, timer_ref }
-
-  defp add_handler(manager, cancel_ref, timer_ref) do
-    :ok = :gen_event.add_sup_handler(manager, { __MODULE__, cancel_ref }, { self(), timer_ref })
+      receive do
+        { :gen_event_EXIT, { __MODULE__, ^cancel }, _ } -> :ok
+      end
+    end)
   end
 
   defp add_timer(:infinity), do: make_ref()
   defp add_timer(duration) do
     :erlang.start_timer(duration, self(), __MODULE__)
   end
+
+  defp cancel_ref(nil, timer_ref), do: timer_ref
+  defp cancel_ref(id, timer_ref),  do: { id, timer_ref }
 
   defp remove_timer(_timer_ref, :infinity), do: nil
   defp remove_timer(timer_ref, _duration) do
@@ -546,27 +528,8 @@ defimpl Enumerable, for: GenEvent do
     end
   end
 
-  # If the manager is on another node, we cannot catch the call
-  # because a netsplit might cause the response to appear in the
-  # mailbox later on. Therefore, we do the call in another process
-  # and wait for it to succeed or fail. If it fails the link to the
-  # manager is broken and the manager will remove the handler.
-  defp remove_handler(manager, cancel_ref) when node(manager) !== node() do
-    { _pid, mon_ref } = Process.spawn_monitor(:gen_event, :delete_handler,
-      [manager, { __MODULE__, cancel_ref }, :remove_handler])
-    receive do
-      { :DOWN, ^mon_ref, _, _, _ } -> :ok
-    end
-  end
-
-  # It's safe to catch the call for a local manager because the timeout
-  # is :infinity so an exit means the manager (and so the handler too)
-  # is down.
-  defp remove_handler(manager, cancel_ref) do
-    try do
-      :gen_event.delete_handler(manager, { __MODULE__, cancel_ref }, :remove_handler)
-    catch
-      :exit, _ -> :ok
-    end
+  defp remove_handler(sub_ref, sub_pid) do
+    Process.demonitor(sub_ref, [:flush])
+    Process.exit(sub_pid, :shutdown)
   end
 end
