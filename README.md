@@ -75,7 +75,7 @@ The benefit of such functionality is that events can be published and consumed w
 
 ...
 
-## GenTask
+## Task
 
 ...
 
