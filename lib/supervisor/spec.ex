@@ -1,4 +1,3 @@
-
 defmodule Supervisor.Spec do
   @moduledoc """
   Convenience functions for defining a supervision specification.
@@ -36,16 +35,16 @@ defmodule Supervisor.Spec do
         end
       end
 
-  Notice in this case we didn't have to explicitly import
+  Notice in this case we don't have to explicitly import
   `Supervisor.Spec` as `use Supervisor` automatically does so.
 
-  Explicit supervisors as above are required when there is:
+  Explicit supervisors as above are required when there is a need to:
 
-  1. an interest in performing hot-code swaps in the supervision tree;
+  1. partialy change the supervision tree during hot-code swaps;
 
-  2. a need to define supervisors inside other supervisors;
+  2. define supervisors inside other supervisors;
 
-  3. a need to perform actions inside the supervision `init/1` callback.
+  3. perform actions inside the supervision `init/1` callback.
      For example, you may want to start an ETS table that is linked to
      the supervisor (i.e. if the supervision tree needs to be restarted,
      the ETS table must be restarted too);
@@ -135,13 +134,28 @@ defmodule Supervisor.Spec do
   """
   def supervise(children, options) do
     unless strategy = options[:strategy] do
-      raise ArgumentError, message: "expected :strategy option to be given to supervise"
+      raise ArgumentError, message: "expected :strategy option to be given"
     end
 
     maxR = Keyword.get(options, :max_restarts, 5)
     maxS = Keyword.get(options, :max_seconds, 5)
 
+    assert_unique_ids(Enum.map(children, &elem(&1, 0)))
     { :ok, { { strategy, maxR, maxS }, children } }
+  end
+
+  defp assert_unique_ids([id|rest]) do
+    if id in rest do
+      raise ArgumentError, message:
+        "duplicated id #{inspect id} found in the supervisor specification, " <>
+        "please explicitly pass the :id option when defining this worker/supervisor"
+    else
+      assert_unique_ids(rest)
+    end
+  end
+
+  defp assert_unique_ids([]) do
+    :ok
   end
 
   @doc """
@@ -176,22 +190,14 @@ defmodule Supervisor.Spec do
   end
 
   defp child(type, module, args, options) do
-    id       = options[:id]       || id(module)
-    modules  = options[:modules]  || modules(module)
-    function = options[:function] || :start_link
-    restart  = options[:restart]  || :permanent
-    shutdown = options[:shutdown] || 5000
+    id       = Keyword.get(options, :id, module)
+    modules  = Keyword.get(options, :modules, modules(module))
+    function = Keyword.get(options, :function, :start_link)
+    restart  = Keyword.get(options, :restart, :permanent)
+    shutdown = Keyword.get(options, :shutdown, 5000)
 
     { id, { module, function, args },
       restart, shutdown, type, modules }
-  end
-
-  defp id(mod) when mod in [Supervisor] do
-    raise ArgumentError, "the :id option is required when the supervisor module is #{inspect mod}"
-  end
-
-  defp id(mod) do
-    mod
   end
 
   defp modules(GenEvent), do: :dynamic

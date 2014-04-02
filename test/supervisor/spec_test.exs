@@ -28,6 +28,17 @@ defmodule Supervisor.SpecTest do
     }
   end
 
+  test "worker/3 with GenEvent" do
+    assert worker(GenEvent, [[local: :hello]]) == {
+      GenEvent,
+      { GenEvent, :start_link, [[local: :hello]] },
+      :permanent,
+      5000,
+      :worker,
+      :dynamic
+    }
+  end
+
   test "supervisor/3" do
     assert supervisor(Foo, [1, 2, 3]) == {
       Foo,
@@ -56,10 +67,19 @@ defmodule Supervisor.SpecTest do
       :ok, { { :one_for_one, 5, 5 }, [] }
     }
 
-    opts = [strategy: :one_for_all, max_restarts: 1, max_seconds: 1]
+    children = [worker(GenEvent, [])]
+    options  = [strategy: :one_for_all, max_restarts: 1, max_seconds: 1]
 
-    assert supervise([:sample], opts) == {
-      :ok, { { :one_for_all, 1, 1 }, [:sample] }
+    assert supervise(children, options) == {
+      :ok, { { :one_for_all, 1, 1 }, children }
     }
+  end
+
+  test "supervise/2 with duplicated ids" do
+    children = [worker(GenEvent, []), worker(GenEvent, [])]
+
+    assert_raise ArgumentError, fn ->
+      supervise(children, strategy: :one_for_one)
+    end
   end
 end
