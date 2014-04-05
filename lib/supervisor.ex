@@ -57,7 +57,7 @@ defmodule Supervisor do
       GenServer.cast(:sup_stack, { :push, :world })
       #=> :ok
 
-      GenServer.cast(:sup_stack, :pop)
+      GenServer.call(:sup_stack, :pop)
       #=> :world
 
   However, there is a bug in our stack server. If we call `:pop` and
