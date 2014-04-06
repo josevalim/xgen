@@ -57,8 +57,9 @@ defmodule GenServer do
   We start our `Stack` by calling `start_link/2`, passing the module
   with the server implementation and its initial argument (a list
   representing the stack containing the item `:hello`). We can primarily
-  interact with the server by sending two types of messages. *cast**
-  messages are asynchronous while **call** ones are synchronous.
+  interact with the server by sending two types of messages. **call**
+  messages expect a reply from the server (and is therefore synchronous)
+  while **cast** messages do not.
 
   Every time you do a `GenServer.call/2`, the client will send a message
   that must be handled by the `handle_call/3` callback in the GenServer.
