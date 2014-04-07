@@ -73,11 +73,13 @@ defmodule Task do
 
   It contains two fields:
 
-  * `:pid` - the pid of the task process
+  * `:process` - the proces reference of the task process. It may be a pid
+    or a tuple containing the process and node names
+
   * `:ref` - the task monitor reference
 
   """
-  defstruct pid: nil, ref: nil
+  defstruct process: nil, ref: nil
 
   @spec run(fun) :: :ok
   def run(fun) do
@@ -106,21 +108,20 @@ defmodule Task do
         send(parent, { ref, apply(mod, fun, args) })
       end, [:link, :monitor])
 
-    %Task{pid: pid, ref: ref}
+    %Task{process: pid, ref: ref}
   end
 
   @doc """
   Await for a task reply.
   """
   @spec await(t, timeout) :: term
-  def await(%Task{pid: pid, ref: ref}, timeout \\ 5000) do
+  def await(%Task{process: process, ref: ref}, timeout \\ 5000) do
     receive do
       { ^ref, reply } ->
         Process.demonitor(ref, [:flush])
         reply
       { :DOWN, ^ref, _, _, :noconnection } ->
-        node = node(pid)
-        exit({ :nodedown, node })
+        exit({ :nodedown, get_node(process) })
       { :DOWN, ^ref, _, _, reason } ->
         exit(reason)
     after
@@ -129,4 +130,7 @@ defmodule Task do
         exit(:timeout)
     end
   end
+
+  defp get_node({ _, n }) when is_atom(n), do: n
+  defp get_node(pid) when is_pid(pid), do: pid
 end
