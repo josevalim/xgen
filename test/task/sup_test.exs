@@ -99,4 +99,50 @@ defmodule Task.SupTest do
     assert { :unknown, { Task, :await, [^task, 5000] } } =
            catch_exit(Task.await(task))
   end
+
+  test "async/4 cross node with netsplit" do
+    { :ok, _ } = :net_kernel.start([:"foo@127.0.0.1", :longnames, 1000])
+    bar = setup_node(:bar)
+    buzz = setup_node(:buzz)
+    # start Task.Sup
+    { :ok, sup_pid } = :rpc.block_call(bar, Task.Sup, :start_link, [])
+    # suspend Task.Sup so it doesn't handle requests
+    :sys.suspend(sup_pid)
+    trap = Process.flag(:trap_exit, true)
+    pid = spawn_link( fn() ->
+      # use block_call so :rex catches failure and stays alive
+      { :badrpc, { :EXIT, reason } } = :rpc.block_call(buzz, Task.Sup, :async,
+        [sup_pid, :erlang, :now, []])
+      exit(reason)
+    end)
+    # sleep to ensure message in sup_pid queue
+    :timer.sleep(200)
+    # break connection between bar and buzz
+    true = :rpc.call(bar, :erlang, :disconnect_node, [buzz])
+    # :rex on buzz caught the failed attempt to spawn a task
+    assert_receive { :EXIT, ^pid, { { :nodedown, ^bar }, _ } }
+    Process.flag(:trap_exit, trap)
+    # resume Task.Sup so it spawns the task.
+    :sys.resume(sup_pid)
+    # the task on bar will try to link to its caller process on buzz and
+    # reconnection will occur and the link will be successful.
+    # sleep for a while to let the dust settle.
+    :timer.sleep(1000)
+    # check the spawned task has exited
+    assert Supervisor.which_children(sup_pid) == []
+    :slave.stop(bar)
+    :slave.stop(buzz)
+    :net_kernel.stop()
+  end
+
+  defp setup_node(name) do
+    code = :code.get_path()
+      |> Enum.map(&( [' -pa ', &1] ))
+      |> List.flatten
+    args =  code
+    { :ok, node_name } = :slave.start_link(:"127.0.0.1", name, args)
+    :ok = :rpc.call(node_name, :application, :start, [:elixir])
+    node_name
+  end
+
 end
