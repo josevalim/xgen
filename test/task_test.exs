@@ -49,6 +49,11 @@ defmodule TaskTest do
     assert catch_exit(Task.await(task, 0)) == :timeout
   end
 
+  test "await/1 exits with timeout on normal task exit" do
+    task = Task.async(fn -> exit :normal end)
+    assert catch_exit(Task.await(task)) == :timeout
+  end
+
   test "await/1 exits on task exit" do
     task = Task.async(fn -> exit :unknown end)
     assert catch_exit(Task.await(task)) == :unknown

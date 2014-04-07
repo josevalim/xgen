@@ -136,6 +136,8 @@ defmodule Task do
         reply
       { :DOWN, ^ref, _, _, :noconnection } ->
         exit({ :nodedown, get_node(process) })
+      { :DOWN, ^ref, _, _, :normal } ->
+        exit(:timeout)
       { :DOWN, ^ref, _, _, reason } ->
         exit(reason)
     after
