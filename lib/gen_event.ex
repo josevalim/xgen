@@ -448,6 +448,14 @@ defimpl Enumerable, for: GenEvent do
   use GenEvent
 
   @doc false
+  def init({ mon_pid, pid, ref }) do
+    # Tell the mon_pid we are good to go, and send self() so that this handler
+    # can be removed later without using the managers name.
+    send(mon_pid, { :UP, ref, self() })
+    { :ok, { pid, ref } }
+  end
+
+  @doc false
   def handle_event(event, { pid, ref } = state) do
     send pid, { ref, event }
     { :ok, state }
@@ -460,24 +468,25 @@ defimpl Enumerable, for: GenEvent do
         send mon_pid, { :UP, mon_ref, self() }
 
         receive do
-          { :UP, ^mon_ref, ^mon_pid } -> { mon_ref, mon_pid }
+          { :UP, ^mon_ref, manager_pid } -> { mon_ref, mon_pid, manager_pid }
           { :DOWN, ^mon_ref, _, _, reason } -> exit(reason)
         end
       end
 
     next_fun =
-      fn { mon_ref, _ } = acc ->
+      fn { mon_ref, _, _ } = acc ->
         receive do
           { ^mon_ref, event } -> { event, acc }
-          { :DOWN, ^mon_ref, _, _, _ } -> nil
+          { :DOWN, ^mon_ref, _, _, :normal } -> nil
+          { :DOWN, ^mon_ref, _, _, reason } -> exit(reason)
         after
           timeout -> exit(:timeout)
         end
       end
 
     stop_fun =
-      fn { mon_ref, mon_pid } ->
-        remove_handler(mon_ref, mon_pid)
+      fn { mon_ref, _mon_pid, manager_pid } ->
+        remove_handler(mon_ref, manager_pid, id)
         flush_events(mon_ref)
       end
 
@@ -499,6 +508,12 @@ defimpl Enumerable, for: GenEvent do
     # the handler dies, and is killed when there is a need to remove
     # the subscription.
     Process.spawn_monitor(fn ->
+      # It is possible that the handler could be removed, and then the GenEvent
+      # could exit before this process has exited normally. Because the removal
+      # does not cause an unlinking this process would exit with the same
+      # reason. Trapping exits ensures that no errors is raised in this case.
+      Process.flag(:trap_exit, true)
+
       # Monitor the parent as it may die any time
       parent_ref = Process.monitor(parent)
 
@@ -509,26 +524,46 @@ defimpl Enumerable, for: GenEvent do
       end
 
       cancel = cancel_ref(id, mon_ref)
-      :ok = :gen_event.add_sup_handler(manager, { __MODULE__, cancel }, { parent, mon_ref })
-
-      # Now the handler is registered, tell the parent we are good to go
-      send(parent, { :UP, mon_ref, self() })
+      :ok = :gen_event.add_sup_handler(manager, { __MODULE__, cancel },
+        { self(), parent, mon_ref })
 
       receive do
-        { :gen_event_EXIT, { __MODULE__, ^cancel }, _ } -> :ok
-        { :DOWN, ^parent_ref, _, _, _ } -> :ok
-      after
-        duration -> :ok
+        # This message is already in the mailbox if we got this far.
+        { :UP, ^mon_ref, manager_pid } ->
+          send(parent, { :UP, mon_ref, manager_pid })
+          receive do
+            # Should be normal unless the handler is swapped.
+            { :gen_event_EXIT, { __MODULE__, ^cancel }, reason } -> exit(reason)
+            { :DOWN, ^parent_ref, _, _, _ } -> exit(:normal)
+            { :EXIT, ^manager_pid, :noconnection } ->
+              exit({ :nodedown, node(manager_pid) })
+            # This should only occur if the manager_pid is killed.
+            { :EXIT, ^manager_pid, reason } -> exit(reason)
+          after
+            duration -> exit(:normal)
+          end
       end
     end)
   end
 
-  defp cancel_ref(nil, timer_ref), do: timer_ref
-  defp cancel_ref(id, timer_ref),  do: { id, timer_ref }
+  defp cancel_ref(nil, mon_ref), do: mon_ref
+  defp cancel_ref(id, mon_ref),  do: { id, mon_ref }
 
-  defp remove_handler(mon_ref, mon_pid) do
+  defp remove_handler(mon_ref, manager_pid, id) do
     Process.demonitor(mon_ref, [:flush])
-    Process.exit(mon_pid, :shutdown)
+    handler = { __MODULE__, cancel_ref(id, mon_ref) }
+    # handler may nolonger be there, if it is the removal will cause the monitor
+    # process to exit. If this returns successfuly then no more events will be
+    # forwarded.
+    _ = :gen_event.delete_handler(manager_pid, handler, :remove_handler)
+  catch
+    # Do not want to overide the exit reason of the mon_pid so catch errors.
+    # However if the exit is due to a disconnection, exit because messages could
+    # leak if the nodes are reconnected before the manager on the other node
+    # removes the handler. In this case it is very likely that the mon_pid
+    # exited with the same reason.
+    :exit, reason when reason !== { :nodedown, node(manager_pid) } ->
+      :ok
   end
 
   defp flush_events(mon_ref) do

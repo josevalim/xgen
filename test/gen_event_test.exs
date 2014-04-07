@@ -13,6 +13,16 @@ defmodule GenEventTest do
     end
   end
 
+  defmodule SlowHandler do
+    use GenEvent
+
+    def handle_event(_event, state) do
+      :timer.sleep(500)
+      { :ok, state }
+    end
+
+  end
+
   @receive_timeout 1000
 
   test "start_link/2 and handler workflow" do
@@ -139,7 +149,9 @@ defmodule GenEventTest do
     { :ok, pid } = GenEvent.start_link()
 
     parent = self()
-    spawn_link fn -> send parent, Enum.take(GenEvent.stream(pid), 5) end
+    stream_pid = spawn_link fn ->
+      send parent, Enum.take(GenEvent.stream(pid), 5)
+    end
     wait_for_handlers(pid, 1)
 
     # Notify the events
@@ -147,8 +159,10 @@ defmodule GenEventTest do
       GenEvent.sync_notify(pid, i)
     end
 
+    trap = Process.flag(:trap_exit, true)
     GenEvent.stop(pid)
-    assert_receive [1, 2, 3], @receive_timeout
+    assert_receive { :EXIT, ^stream_pid, :shutdown }, @receive_timeout
+    Process.flag(:trap_exit, trap)
   end
 
   test "stream/2 with cancel streams" do
@@ -170,6 +184,27 @@ defmodule GenEventTest do
     GenEvent.stop(pid)
   end
 
+  test "stream/2 with swap_handler" do
+    # Start a manager and subscribers
+    { :ok, pid } = GenEvent.start_link()
+    stream = GenEvent.stream(pid, id: make_ref())
+
+    parent = self()
+    stream_pid = spawn_link fn -> send parent, Enum.take(stream, 5) end
+    wait_for_handlers(pid, 1)
+
+    # Notify the events
+    for i <- 1..3 do
+      GenEvent.sync_notify(pid, i)
+    end
+
+    [handler] = GenEvent.which_handlers(pid)
+    trap = Process.flag(:trap_exit, true)
+    GenEvent.swap_handler(pid, handler, :swap_handler, LogHandler, [])
+    assert_receive { :EXIT, ^stream_pid, { :swapped, LogHandler, _ } }, @receive_timeout
+    Process.flag(:trap_exit, trap)
+  end
+
   test "stream/2 with duration" do
     # Start a manager and subscribers
     { :ok, pid } = GenEvent.start_link()
@@ -188,34 +223,9 @@ defmodule GenEventTest do
     wait_for_handlers(pid, 0)
 
     # The stream is not complete but terminated anyway due to duration
-    receive do
-      { :duration, list } when length(list) <= 5 -> :ok
-    after
-      0 -> flunk "expected event stream to have finished with 5 or less items"
-    end
+    assert_receive { :duration, [1, 2, 3, 4, 5] }, @receive_timeout
 
     GenEvent.stop(pid)
-  end
-
-  test "stream/2 with duration and manager stop" do
-    # Start a manager and subscribers
-    { :ok, pid } = GenEvent.start_link()
-    stream = GenEvent.stream(pid, duration: 200)
-
-    parent = self()
-    spawn_link fn -> send parent, Enum.take(stream, 5) end
-    wait_for_handlers(pid, 1)
-
-    # Notify the events
-    for i <- 1..3 do
-      GenEvent.sync_notify(pid, i)
-    end
-
-    GenEvent.stop(pid)
-    assert_receive [1, 2, 3], @receive_timeout
-
-    # Timeout message does not leak
-    refute_received { :timeout, _, __MODULE__ }
   end
 
   test "stream/2 with parallel use and first finishing first" do
@@ -249,8 +259,7 @@ defmodule GenEventTest do
     stream = GenEvent.stream(pid)
 
     parent = self()
-    spawn_link fn ->
-      Process.flag(:trap_exit, true)
+    stream_pid = spawn_link fn ->
       send parent, Enum.to_list(stream)
     end
     wait_for_handlers(pid, 1)
@@ -258,9 +267,8 @@ defmodule GenEventTest do
     trap = Process.flag(:trap_exit, true)
     Process.exit(pid, :kill)
     assert_receive { :EXIT, ^pid, :killed }, @receive_timeout
+    assert_receive { :EXIT, ^stream_pid, :killed }, @receive_timeout
     Process.flag(:trap_exit, trap)
-
-    assert_receive [], @receive_timeout
   end
 
   test "stream/2 with manager unregistered" do
@@ -290,6 +298,32 @@ defmodule GenEventTest do
     # We should have gotten the message and all handlers were removed
     assert_receive [1, 2, 3, 4, 5], @receive_timeout
     wait_for_handlers(pid, 0)
+  end
+
+  test "stream/2 with slow handler" do
+    # Start a manager and subscribers
+    { :ok, pid } = GenEvent.start_link()
+    stream = GenEvent.stream(pid, duration: 200)
+
+    spawn_link fn ->
+      # Wait for stream to start
+      wait_for_handlers(pid, 1)
+      GenEvent.notify(pid, 1)
+      # Add slow handler so that the second or third event arrives after
+      # duration of 200.
+      GenEvent.add_handler(pid, SlowHandler, [], link: true)
+      GenEvent.notify(pid, 2)
+      GenEvent.notify(pid, 3)
+    end
+
+    # Evaluate stream.
+    _ = Enum.to_list(stream)
+
+    # Wait for the slow handler to be removed so all events have been handled.
+    wait_for_handlers(pid, 0)
+
+    # Check no messages leaked.
+    refute_received _any
   end
 
   defp wait_for_handlers(pid, count) do
