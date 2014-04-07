@@ -17,7 +17,7 @@ This README provides installation instructions and the overall description of th
 This project requires Elixir v0.13.0 or later. To install, just add it to your `deps`:
 
     def deps do
-      [{:xgen, github: "josevalim/xgen"}]
+      [{ :xgen, github: "josevalim/xgen" }]
     end
 
 And list it as a runtime dependency for your application:

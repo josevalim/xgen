@@ -79,9 +79,9 @@ defmodule Task do
   It contains two fields:
 
   * `:process` - the proces reference of the task process. It may be a pid
-    or a tuple containing the process and node names
+    or a tuple containing the process and node names;
 
-  * `:ref` - the task monitor reference
+  * `:ref` - the task monitor reference;
 
   """
   defstruct process: nil, ref: nil

@@ -17,10 +17,9 @@ defmodule GenEventTest do
     use GenEvent
 
     def handle_event(_event, state) do
-      :timer.sleep(500)
+      :timer.sleep(300)
       { :ok, state }
     end
-
   end
 
   @receive_timeout 1000
@@ -309,8 +308,9 @@ defmodule GenEventTest do
       # Wait for stream to start
       wait_for_handlers(pid, 1)
       GenEvent.notify(pid, 1)
-      # Add slow handler so that the second or third event arrives after
-      # duration of 200.
+
+      # Add slow handler so that the second or
+      # third event arrives after duration of 200.
       GenEvent.add_handler(pid, SlowHandler, [], link: true)
       GenEvent.notify(pid, 2)
       GenEvent.notify(pid, 3)
