@@ -24,14 +24,19 @@ defmodule Task do
 
   The most common way to spawn a task is with `Task.async/1`. A new
   process will be created and this process is linked and monitored
-  by the caller.
+  by the caller. However, the processes are unlinked right before
+  the task finishes, so the proper error is triggered on `await/1`.
 
-  This guarantees two things:
+  This implies three things:
 
-  1) In case the caller/parent crashes, the task will be killed and
-     its computation will abort;
+  1) In case the caller crashes, the task will be killed and its
+     computation will abort;
 
-  2) In case the task crashes, the parent is going to crash too;
+  2) In case the task crashes due to an error, the parent will
+     crash on `await/1`;
+
+  3) In case the task crashes because a linked process caused
+     it to crash, the parent will crash too;
 
   ## run
 
@@ -105,14 +110,23 @@ defmodule Task do
     { pid, ref } =
       Process.spawn(fn ->
         ref = receive do: ({ ^parent, ref } -> ref)
-        send(parent, { ref, apply(mod, fun, args) })
+        try do
+          send(parent, { ref, apply(mod, fun, args) })
+        after
+          Process.unlink(parent)
+        end
       end, [:link, :monitor])
 
+    send(pid, { parent, ref })
     %Task{process: pid, ref: ref}
   end
 
   @doc """
   Await for a task reply.
+
+  A timeout, in miliseconds, can be given with default value
+  of `5000`. In case the task process dies, this function will
+  exit with the same reason as the task.
   """
   @spec await(t, timeout) :: term
   def await(%Task{process: process, ref: ref}, timeout \\ 5000) do

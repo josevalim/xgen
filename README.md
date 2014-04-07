@@ -69,7 +69,11 @@ The benefit of such functionality is that events can be published and consumed w
 
 ## Supervisor
 
-...
+Supervisors in xgen work similarly to OTP's supervisors except by:
+
+1. The addition of `Supervisor.Spec` that helps developers define their supervision tree with clearer options;
+
+2. The addition of `Supervisor.start_link/2` which allows supervision trees to be defined without a explicit module with callbacks;
 
 ## Application
 
@@ -77,7 +81,21 @@ The benefit of such functionality is that events can be published and consumed w
 
 ## Task
 
-...
+xgen adds a Task module which is useful for spawning processes that compute a value to be retrieved later on:
+
+    task = Task.async(fn -> do_some_work() end)
+    res  = do_some_other_work()
+    res + Task.await(task)
+
+Although tasks map directy to the underlying OTP semantics (using processes), by providing a common pattern, we allow other parts of the standard library to rely on them. For example, `GenServer.async_call/2` performs a `call/2` operation and returns a Task struct that can be awaited on.
+
+Tasks also ship with a `Task.Sup` module, which can be used to supervise tasks and even allow tasks to be spawned on remote nodes:
+
+    # In the remote node
+    Task.Sup.start_link(local: :tasks_sup)
+
+    # On the client
+    Task.Sup.async({ :tasks_sup, :remote@local }, fn -> do_work() end)
 
 ## Agent
 
