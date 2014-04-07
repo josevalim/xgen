@@ -339,12 +339,11 @@ defmodule Supervisor do
   end
 
   defp do_start(mod, arg, [{ :via, { via, name } }|_]) do
-    sup_name = { :via, via, name }
-    :gen_server.start_link(sup_name, :supervisor, { sup_name, mod, arg }, [])
+    :supervisor.start_link({ :via, via, name }, mod, arg)
   end
 
   defp do_start(mod, arg, [{ kind, _ } = sup_name|_]) when kind in [:local, :global] do
-    :gen_server.start_link(sup_name, :supervisor, { sup_name, mod, arg }, [])
+    :supervisor.start_link(sup_name, mod, arg)
   end
 
   defp do_start(mod, arg, [_|t]) do
@@ -352,6 +351,6 @@ defmodule Supervisor do
   end
 
   defp do_start(mod, arg, []) do
-    :gen_server.start_link(:supervisor, { :self, mod, arg }, [])
+    :supervisor.start_link(mod, arg)
   end
 end
