@@ -101,7 +101,7 @@ defmodule GenServer do
      It must return:
 
         { :noreply, state }
-        { :noreply, staet, timeout }
+        { :noreply, state, timeout }
         { :stop, reason, state }
 
   * `terminate(reason, state)` - called when the server is about to
