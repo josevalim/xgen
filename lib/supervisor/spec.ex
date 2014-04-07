@@ -105,6 +105,32 @@ defmodule Supervisor.Spec do
     unconditionally terminated using `Process.exit(child, :kill)`;
   """
 
+  @typedoc "Supported strategies"
+  @type strategy :: :simple_one_for_one | :one_for_one | :one_for_all | :rest_for_one
+
+  @typedoc "Supported restart values"
+  @type restart :: :permanent | :transient | :temporary
+
+  @typedoc "Supported shutdown values"
+  @type shutdown :: :brutal_kill | :infinity | non_neg_integer
+
+  @typedoc "Supported worker values"
+  @type worker :: :worker | :supervisor
+
+  @typedoc "Supported module values"
+  @type modules :: :dynamic | [module]
+
+  @typedoc "Supported id values"
+  @type child_id :: term
+
+  @typedoc "The supervisor specification"
+  @type spec :: { child_id,
+                  start_fun :: { module, atom, [term] },
+                  restart,
+                  shutdown,
+                  worker,
+                  modules }
+
   @doc """
   Receives a list of children (workers or supervisors) to
   supervise and a set of options.
@@ -132,6 +158,9 @@ defmodule Supervisor.Spec do
   are allowed in 5 seconds. Please check the `Supervisor` module for
   a complete description of the available strategies.
   """
+  @spec supervise([spec], strategy: strategy,
+                          max_restarts: non_neg_integer,
+                          max_seconds: non_neg_integer) :: { :ok, tuple }
   def supervise(children, options) do
     unless strategy = options[:strategy] do
       raise ArgumentError, message: "expected :strategy option to be given"
@@ -169,6 +198,8 @@ defmodule Supervisor.Spec do
   Check `Supervisor.Spec` module docs for more information on
   the available options.
   """
+  @spec worker(module, [term], [restart: restart, shutdown: shutdown,
+                                id: term, function: atom, modules: modules]) :: spec
   def worker(module, args, options \\ []) do
     child(:worker, module, args, options)
   end
@@ -184,6 +215,8 @@ defmodule Supervisor.Spec do
   Check `Supervisor.Spec` module docs for more information on
   the available options.
   """
+  @spec supervisor(module, [term], [restart: restart, shutdown: shutdown,
+                                    id: term, function: atom, modules: modules]) :: spec
   def supervisor(module, args, options \\ []) do
     options = Keyword.put_new(options, :shutdown, :infinity)
     child(:supervisor, module, args, options)
