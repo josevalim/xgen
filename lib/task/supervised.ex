@@ -67,11 +67,7 @@ defmodule Task.Supervised do
 
   # Local by name in disguise
   def call({ name, node }, label, request) when node == node() do
-    if node() == :nonode@nohost do
-      exit({ :nodedown, node })
-    else
-      call({ :local, name }, label, request)
-    end
+    call({ :local, name }, label, request)
   end
 
   # Remote by name

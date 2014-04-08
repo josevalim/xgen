@@ -49,7 +49,7 @@ defmodule GenServerTest do
     { :ok, _ } = GenServer.start_link(Stack, [], local: :stack)
 
     assert GenServer.abcast(:stack, { :push, :hello }) == :abcast
-    assert GenServer.call(:stack, :pop) == :hello
+    assert GenServer.async_call({ :stack, node() }, :pop) |> Task.await == :hello
 
     assert GenServer.abcast([node, :foo@bar], :stack, { :push, :world }) == :abcast
     assert GenServer.async_call(:stack, :pop) |> Task.await == :world
