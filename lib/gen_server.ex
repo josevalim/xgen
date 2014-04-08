@@ -122,14 +122,14 @@ defmodule GenServer do
   The supported options are:
 
   * `:local` - the GenServer is registered locally with the given name (an atom)
-               using `Process.register/2`
+    using `Process.register/2`;
 
   * `:global`- the GenServer is registered globally with the given term using
-               the functions in the `:global` module
+    the functions in the `:global` module;
 
   * `:via` - the GenServer is registered with the given mechanism and name. The
-             `:via` option expects a module name to control the registration mechanism
-             and the name in a tuple as option
+    `:via` option expects a module name to control the registration mechanism
+    and the name in a tuple as option;
 
   For example, we could start and register our Stack server locally as follows:
 
@@ -140,7 +140,7 @@ defmodule GenServer do
       GenServer.call(MyStack, :pop) #=> :hello
 
   Once the server is started, the remaining functions in this module (`call/2`,
-  `cast/2` and friends) expects a server reference in one of the following
+  `cast/2` and friends) expect a server reference in one of the following
   formats:
 
   * a `pid`

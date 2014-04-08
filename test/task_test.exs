@@ -1,7 +1,10 @@
 defmodule TaskTest do
   use ExUnit.Case, async: true
 
-  def atom(atom), do: atom
+  def wait_and_send(caller, atom) do
+    receive do: (true -> true)
+    send caller, atom
+  end
 
   test "async/1" do
     task = Task.async fn ->
@@ -28,19 +31,29 @@ defmodule TaskTest do
   end
 
   test "async/3" do
-    task = Task.async(__MODULE__, :atom, [:done])
+    task = Task.async(List, :flatten, [[1, [2], 3]])
     assert task.__struct__ == Task
-    assert Task.await(task) == :done
+    assert Task.await(task) == [1, 2, 3]
   end
 
-  test "run/1" do
+  test "start_link/1" do
     parent = self()
-    assert Task.run(fn -> send(parent, :done) end) == :ok
+    { :ok, pid } = Task.start_link(fn -> wait_and_send(parent, :done) end)
+
+    { :links, links } = Process.info(self, :links)
+    assert pid in links
+
+    send pid, true
     assert_receive :done
   end
 
-  test "run/3" do
-    assert Task.run(Kernel, :send, [self, :done]) == :ok
+  test "start_link/3" do
+    { :ok, pid } = Task.start_link(__MODULE__, :wait_and_send, [self(), :done])
+
+    { :links, links } = Process.info(self, :links)
+    assert pid in links
+
+    send pid, true
     assert_receive :done
   end
 

@@ -49,7 +49,7 @@ defmodule Supervisor.Spec do
      the supervisor (i.e. if the supervision tree needs to be restarted,
      the ETS table must be restarted too);
 
-  ## Worker and supervisor options
+  ## Supervisor and worker options
 
   In the example above, we have defined workers and supervisors
   and each accepts the following options:
@@ -58,21 +58,16 @@ defmodule Supervisor.Spec do
     internally by the supervisor. Defaults to the given module
     name;
 
-  * `:function` - the function to invoke on the child to start it.
-    Defaults to `:start_link`;
+  * `:function` - the function to invoke on the child to start it;
 
-  * `:restart` - defines when the child process should restart.
-    Defaults to `:permanent`;
+  * `:restart` - defines when the child process should restart;
 
-  * `:shutdown` - defines how a child process should be terminated.
-    Defaults to `5000` for a worker and `:infinity` for a supervisor;
+  * `:shutdown` - defines how a child process should be terminated;
 
   * `:modules` - it should be a list with one element `[module]`,
     where module is the name of the callback module only if the
-    child process is a `Supervisor` or `GenServer`. If the child
-    process is a `GenEvent`, modules should be `:dynamic`.
-    Defaults to a list with the given module unless the given
-    `module` is `GenEvent` itself.
+    child process is a `Supervisor` or `GenServer` If the child
+    process is a `GenEvent`, modules should be `:dynamic`;
 
   ### Restart values
 
@@ -193,10 +188,17 @@ defmodule Supervisor.Spec do
 
       worker ExUnit.Runner, [], restart: :permanent
 
-  By default, the function `:start_link` is invoked on the given module.
+  By default, the function `:start_link` is invoked on the given
+  module. Overall, the default values for the options are:
+
+      [id: module,
+       function: :start_link,
+       restart: :permanent,
+       shutdown: 5000,
+       modules: [module]]
 
   Check `Supervisor.Spec` module docs for more information on
-  the available options.
+  the options.
   """
   @spec worker(module, [term], [restart: restart, shutdown: shutdown,
                                 id: term, function: atom, modules: modules]) :: spec
@@ -210,10 +212,17 @@ defmodule Supervisor.Spec do
 
       supervisor ExUnit.Runner, [], restart: :permanent
 
-  By default, the function `:start_link` is invoked on the given module.
+  By default, the function `:start_link` is invoked on the given
+  module. Overall, the default values for the options are:
+
+      [id: module,
+       function: :start_link,
+       restart: :permanent,
+       shutdown: :infinity,
+       modules: [module]]
 
   Check `Supervisor.Spec` module docs for more information on
-  the available options.
+  the options.
   """
   @spec supervisor(module, [term], [restart: restart, shutdown: shutdown,
                                     id: term, function: atom, modules: modules]) :: spec
