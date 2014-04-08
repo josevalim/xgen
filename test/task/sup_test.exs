@@ -2,7 +2,7 @@ defmodule Task.SupTest do
   use ExUnit.Case, async: true
 
   setup do
-    Task.Sup.start_link(local: :task_sup)
+    { :ok, _ } = Task.Sup.start_link(local: :task_sup)
     :ok
   end
 
@@ -75,26 +75,27 @@ defmodule Task.SupTest do
 
   test "terminate_child/2" do
     { :ok, pid } = Task.Sup.start_child(:task_sup, __MODULE__, :wait_and_send, [self(), :done])
-    assert Task.Sup.terminate_child(pid) == :ok
-    assert Task.Sup.children(:task_sup)  == []
-    assert Task.Sup.terminate_child(pid) == { :error, :not_found }
+    assert Task.Sup.children(:task_sup) == [pid]
+    assert Task.Sup.terminate_child(:task_sup, pid) == :ok
+    assert Task.Sup.children(:task_sup) == []
+    assert Task.Sup.terminate_child(:task_sup, pid) == :ok
   end
 
   test "await/1 exits on task throw" do
-    task = Task.Sup.async(fn -> throw :unknown end)
-    assert { { { :nocatch, :unknown }, _ }, { Task, :await, [task, 5000] } } =
+    task = Task.Sup.async(:task_sup, fn -> throw :unknown end)
+    assert { { { :nocatch, :unknown }, _ }, { Task, :await, [^task, 5000] } } =
            catch_exit(Task.await(task))
   end
 
   test "await/1 exits on task error" do
-    task = Task.Sup.async(fn -> raise "oops" end)
-    assert { { RuntimeError[], _ }, { Task, :await, [task, 5000] } } =
+    task = Task.Sup.async(:task_sup, fn -> raise "oops" end)
+    assert { { RuntimeError[], _ }, { Task, :await, [^task, 5000] } } =
            catch_exit(Task.await(task))
   end
 
   test "await/1 exits on task exit" do
-    task = Task.Sup.async(fn -> exit :unknown end)
-    assert { :unknown, { Task, :await, [task, 5000] } } =
+    task = Task.Sup.async(:task_sup, fn -> exit :unknown end)
+    assert { :unknown, { Task, :await, [^task, 5000] } } =
            catch_exit(Task.await(task))
   end
 end

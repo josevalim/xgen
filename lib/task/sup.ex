@@ -68,14 +68,14 @@ defmodule Task.Sup do
   def async(supervisor, module, fun, args) do
     { :ok, pid } = Supervisor.start_child(supervisor, [self(), { module, fun, args }])
     ref = Process.monitor(pid)
-    send pid, { :UP, self(), ref }
+    send pid, { self(), ref }
     %Task{process: pid, ref: ref}
   end
 
   @doc """
   Terminates the given child at pid.
   """
-  @spec terminate_child(Supervisor.supervisor, pid) :: :ok | { :error, :not_found }
+  @spec terminate_child(Supervisor.supervisor, pid) :: :ok
   def terminate_child(supervisor, pid) when is_pid(pid) do
     :supervisor.terminate_child(supervisor, pid)
   end

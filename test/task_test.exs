@@ -67,9 +67,22 @@ defmodule TaskTest do
     assert catch_exit(Task.await(task)) == { :timeout, { Task, :await, [task, 5000] } }
   end
 
+  test "await/1 exits on task throw" do
+    task = Task.async(fn -> throw :unknown end)
+    assert { { { :nocatch, :unknown }, _ }, { Task, :await, [^task, 5000] } } =
+           catch_exit(Task.await(task))
+  end
+
+  test "await/1 exits on task error" do
+    task = Task.async(fn -> raise "oops" end)
+    assert { { RuntimeError[], _ }, { Task, :await, [^task, 5000] } } =
+           catch_exit(Task.await(task))
+  end
+
   test "await/1 exits on task exit" do
     task = Task.async(fn -> exit :unknown end)
-    assert catch_exit(Task.await(task)) == { :unknown, { Task, :await, [task, 5000] } }
+    assert { :unknown, { Task, :await, [^task, 5000] } } =
+           catch_exit(Task.await(task))
   end
 
   test "await/1 exits on :noconnection" do
