@@ -349,6 +349,29 @@ defmodule GenEvent do
   end
 
   @doc """
+  Makes a call to the server but don't wait for its reply.
+
+  Instead, a task is returned which must be awaited on with `Task.await/2`.
+  The event manager will call `handle_call/2` to handle the request.
+
+  On await, the response may be `{ :error, :bad_module }` if the
+  specified event handler is not installed.
+  """
+  @spec async_call(manager, handler, term) :: Task.t
+  def async_call(manager, handler, request) do
+    cmd = { :call, handler, request }
+
+    try do
+      Task.Supervised.call(manager, self(), cmd)
+    catch
+      :error, reason ->
+        exit({ { reason, System.stacktrace }, { :gen_event, :async_call, [manager, handler, request] } })
+      :exit, reason ->
+        exit({ reason, { :gen_event, :async_call, [manager, handler, request] } })
+    end
+  end
+
+  @doc """
   Cancels all streams currently running with the given `:id`.
 
   In order for a stream to be cancelled, an `:id` must be passed

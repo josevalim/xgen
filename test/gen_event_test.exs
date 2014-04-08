@@ -40,8 +40,11 @@ defmodule GenEventTest do
     assert GenEvent.notify(pid, { :log, 1 }) == :ok
     assert GenEvent.notify(pid, { :log, 2 }) == :ok
 
-    assert GenEvent.call(pid, LoggerHandler, :messages) == [1, 2]
+    assert GenEvent.async_call(pid, LoggerHandler, :messages) |> Task.await == [1, 2]
     assert GenEvent.call(pid, LoggerHandler, :messages) == []
+
+    assert GenEvent.async_call(pid, UnknownHandler, :messages) |> Task.await == { :error, :bad_module }
+    assert GenEvent.call(pid, UnknownHandler, :messages) == { :error, :bad_module }
 
     assert GenEvent.remove_handler(pid, LoggerHandler, []) == :ok
     assert GenEvent.stop(pid) == :ok

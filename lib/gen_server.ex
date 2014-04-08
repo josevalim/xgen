@@ -334,16 +334,8 @@ defmodule GenServer do
   arrives or a timeout occurs. `handle_call/3` will be called on the server
   to handle the request.
 
-  The server can be:
-
-  * a `pid`
-  * an `atom` if the server is locally registered
-  * `{ atom, node }` if the server is locally registered at another node
-  * `{ :global, term }` if the server is globally registered
-  * `{ :via, module, name }` if the server is registered through an alternative registry
-
-  The call may fail for several reasons, including timeout and the
-  called server dying before or during the call.
+  The server can be any of the values described in the `Name Registering`
+  section of the module documentation.
 
   ## Timeouts
 
@@ -359,6 +351,24 @@ defmodule GenServer do
   @spec call(server, term, timeout) :: term
   def call(server, request, timeout \\ 5000) do
     :gen_server.call(server, request, timeout)
+  end
+
+  @doc """
+  Makes a call to the server but don't wait for its reply.
+
+  Instead, a task is returned which must be awaited on with `Task.await/2`.
+  `handle_call/3` will be called on the server to handle the request.
+  """
+  @spec async_call(server, term) :: Task.t
+  def async_call(server, request) do
+    try do
+      Task.Supervised.call(server, :"$gen_call", request)
+    catch
+      :error, reason ->
+        exit({ { reason, System.stacktrace }, { :gen_server, :async_call, [server, request] } })
+      :exit, reason ->
+        exit({ reason, { :gen_server, :async_call, [server, request] } })
+    end
   end
 
   @doc """

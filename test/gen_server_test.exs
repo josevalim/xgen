@@ -34,7 +34,7 @@ defmodule GenServerTest do
 
     assert GenServer.call(pid, :pop) == :hello
     assert GenServer.cast(pid, { :push, :world }) == :ok
-    assert GenServer.call(pid, :pop) == :world
+    assert GenServer.async_call(pid, :pop) |> Task.await == :world
     assert GenServer.call(pid, :stop) == :ok
   end
 
@@ -52,7 +52,7 @@ defmodule GenServerTest do
     assert GenServer.call(:stack, :pop) == :hello
 
     assert GenServer.abcast([node, :foo@bar], :stack, { :push, :world }) == :abcast
-    assert GenServer.call(:stack, :pop) == :world
+    assert GenServer.async_call(:stack, :pop) |> Task.await == :world
 
     GenServer.call(:stack, :stop)
   end
