@@ -73,15 +73,28 @@ defmodule Task.Sup do
   end
 
   @doc """
+  Terminates the given child at pid.
+  """
+  @spec terminate_child(Supervisor.supervisor, pid) :: :ok | { :error, :not_found }
+  def terminate_child(supervisor, pid) when is_pid(pid) do
+    :supervisor.terminate_child(supervisor, pid)
+  end
+
+  @doc """
+  Returns all children pids.
+  """
+  @spec children(Supervisor.supervisor) :: [pid]
+  def children(supervisor) do
+    :supervisor.which_children(supervisor) |> Enum.map(&elem(&1, 1))
+  end
+
+  @doc """
   Starts a task as child of the given `supervisor`.
 
-  This is equivalent to `Task.start_link/1` except the parent
-  is the given `supervisor`. This is useful in case the task
-  needs to emit side-effects (like I/O) and does not need to
-  report back to the caller.
-
-  As `Task.start_link/1`, a tuple is returned instead of a
-  Task and its result cannot be awaited on.
+  Note the spawned process is not linked to the caller but
+  only to the supervisor. This command is useful in case the
+  task needs to emit side-effects (like I/O) and does not need
+  to report back to the caller.
   """
   @spec start_child(Supervisor.supervisor, fun) :: { :ok, pid }
   def start_child(supervisor, fun) do

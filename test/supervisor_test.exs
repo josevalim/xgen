@@ -36,6 +36,7 @@ defmodule SupervisorTest do
     children = [worker(Stack, [[:hello]])]
     { :ok, pid } = Supervisor.start_link(children, strategy: :one_for_one)
 
+    wait_until_registered(:sup_stack)
     assert GenServer.call(:sup_stack, :pop) == :hello
     assert GenServer.call(:sup_stack, :stop) == :ok
 
