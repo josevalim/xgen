@@ -468,8 +468,12 @@ defimpl Enumerable, for: GenEvent do
         send mon_pid, { :UP, mon_ref, self() }
 
         receive do
-          { :UP, ^mon_ref, manager_pid } -> { mon_ref, mon_pid, manager_pid }
-          { :DOWN, ^mon_ref, _, _, reason } -> exit(reason)
+          # The subscription process gave us a go.
+          { :UP, ^mon_ref, manager_pid } ->
+            { mon_ref, mon_pid, manager_pid }
+          # The subscription process died due to an abnormal reason.
+          { :DOWN, ^mon_ref, _, _, reason } ->
+            exit({ reason, { GenEvent, :stream, [manager] } })
         end
       end
 
@@ -478,9 +482,11 @@ defimpl Enumerable, for: GenEvent do
         receive do
           { ^mon_ref, event } -> { event, acc }
           { :DOWN, ^mon_ref, _, _, :normal } -> nil
-          { :DOWN, ^mon_ref, _, _, reason } -> exit(reason)
+          { :DOWN, ^mon_ref, _, _, reason } ->
+            exit({ reason, { GenEvent, :stream, [manager] } })
         after
-          timeout -> exit(:timeout)
+          timeout ->
+            exit({ :timeout, { GenEvent, :stream, [manager] } })
         end
       end
 
@@ -513,11 +519,9 @@ defimpl Enumerable, for: GenEvent do
       # does not cause an unlinking this process would exit with the same
       # reason. Trapping exits ensures that no errors is raised in this case.
       Process.flag(:trap_exit, true)
-
-      # Monitor the parent as it may die any time
       parent_ref = Process.monitor(parent)
 
-      # Receive the notification from the parent, unless it died
+      # Receive the notification from the parent, unless it died.
       mon_ref = receive do
         { :UP, ref, ^parent } -> ref
         { :DOWN, ^parent_ref, _, _, _ } -> exit(:normal)
@@ -525,21 +529,29 @@ defimpl Enumerable, for: GenEvent do
 
       cancel = cancel_ref(id, mon_ref)
       :ok = :gen_event.add_sup_handler(manager, { __MODULE__, cancel },
-        { self(), parent, mon_ref })
+                                       { self(), parent, mon_ref })
 
       receive do
         # This message is already in the mailbox if we got this far.
         { :UP, ^mon_ref, manager_pid } ->
           send(parent, { :UP, mon_ref, manager_pid })
           receive do
-            # Should be normal unless the handler is swapped.
-            { :gen_event_EXIT, { __MODULE__, ^cancel }, reason } -> exit(reason)
-            { :DOWN, ^parent_ref, _, _, _ } -> exit(:normal)
+            # If the parent died, we can exit normally.
+            { :DOWN, ^parent_ref, _, _, _ } ->
+              exit(:normal)
+
+            # reason should be normal unless the handler is swapped.
+            { :gen_event_EXIT, { __MODULE__, ^cancel }, reason } ->
+              exit(reason)
+
+            # Exit if the manager dies, so the streamer is notified.
             { :EXIT, ^manager_pid, :noconnection } ->
               exit({ :nodedown, node(manager_pid) })
-            # This should only occur if the manager_pid is killed.
-            { :EXIT, ^manager_pid, reason } -> exit(reason)
+
+            { :EXIT, ^manager_pid, reason } ->
+              exit(reason)
           after
+            # Our time is over, notify the parent.
             duration -> exit(:normal)
           end
       end

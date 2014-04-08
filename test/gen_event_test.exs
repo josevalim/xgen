@@ -24,6 +24,11 @@ defmodule GenEventTest do
 
   @receive_timeout 1000
 
+  teardown _ do
+    Process.flag(:trap_exit, false)
+    :ok
+  end
+
   test "start_link/2 and handler workflow" do
     { :ok, pid } = GenEvent.start_link()
 
@@ -115,18 +120,14 @@ defmodule GenEventTest do
   test "stream/2 with timeout" do
     # Start a manager
     { :ok, pid } = GenEvent.start_link()
+    Process.flag(:trap_exit, true)
 
-    # Start a subscriber with timeout
-    parent = self()
-    spawn_link fn ->
-      send parent, (try do
-        Enum.take(GenEvent.stream(pid, timeout: 50), 5)
-      catch
-        :exit, :timeout -> :timeout
-      end)
+    pid = spawn_link fn ->
+      Enum.take(GenEvent.stream(pid, timeout: 50), 5)
     end
 
-    assert_receive :timeout, @receive_timeout
+    assert_receive { :EXIT, ^pid,
+                     { :timeout, { GenEvent, :stream, [_] } } }, @receive_timeout
   end
 
   test "stream/2 with error/timeout on subscription" do
@@ -158,10 +159,10 @@ defmodule GenEventTest do
       GenEvent.sync_notify(pid, i)
     end
 
-    trap = Process.flag(:trap_exit, true)
+    Process.flag(:trap_exit, true)
     GenEvent.stop(pid)
-    assert_receive { :EXIT, ^stream_pid, :shutdown }, @receive_timeout
-    Process.flag(:trap_exit, trap)
+    assert_receive { :EXIT, ^stream_pid,
+                     { :shutdown, { GenEvent, :stream, [_] } } }, @receive_timeout
   end
 
   test "stream/2 with cancel streams" do
@@ -198,10 +199,10 @@ defmodule GenEventTest do
     end
 
     [handler] = GenEvent.which_handlers(pid)
-    trap = Process.flag(:trap_exit, true)
+    Process.flag(:trap_exit, true)
     GenEvent.swap_handler(pid, handler, :swap_handler, LogHandler, [])
-    assert_receive { :EXIT, ^stream_pid, { :swapped, LogHandler, _ } }, @receive_timeout
-    Process.flag(:trap_exit, trap)
+    assert_receive { :EXIT, ^stream_pid,
+                     { { :swapped, LogHandler, _ }, { GenEvent, :stream, [_] } } }, @receive_timeout
   end
 
   test "stream/2 with duration" do
@@ -263,11 +264,11 @@ defmodule GenEventTest do
     end
     wait_for_handlers(pid, 1)
 
-    trap = Process.flag(:trap_exit, true)
+    Process.flag(:trap_exit, true)
     Process.exit(pid, :kill)
     assert_receive { :EXIT, ^pid, :killed }, @receive_timeout
-    assert_receive { :EXIT, ^stream_pid, :killed }, @receive_timeout
-    Process.flag(:trap_exit, trap)
+    assert_receive { :EXIT, ^stream_pid,
+                     { :killed, { GenEvent, :stream, [_] } } }, @receive_timeout
   end
 
   test "stream/2 with manager unregistered" do
