@@ -59,29 +59,29 @@ defmodule TaskTest do
 
   test "await/1 exits on timeout" do
     task = %Task{ref: make_ref()}
-    assert catch_exit(Task.await(task, 0)) == :timeout
+    assert catch_exit(Task.await(task, 0)) == { :timeout, { Task, :await, [task, 0] } }
   end
 
   test "await/1 exits with timeout on normal task exit" do
     task = Task.async(fn -> exit :normal end)
-    assert catch_exit(Task.await(task)) == :timeout
+    assert catch_exit(Task.await(task)) == { :timeout, { Task, :await, [task, 5000] } }
   end
 
   test "await/1 exits on task exit" do
     task = Task.async(fn -> exit :unknown end)
-    assert catch_exit(Task.await(task)) == :unknown
+    assert catch_exit(Task.await(task)) == { :unknown, { Task, :await, [task, 5000] } }
   end
 
   test "await/1 exits on :noconnection" do
     node = { :unknown, :unknown@node }
-    assert catch_exit(noconnection(node)) == {:nodedown, :unknown@node}
-    assert catch_exit(noconnection(self)) == {:nodedown, self}
+    assert catch_noconnection(node) == { :nodedown, :unknown@node }
+    assert catch_noconnection(self) == { :nodedown, self }
   end
 
-  defp noconnection(process) do
+  defp catch_noconnection(process) do
     ref  = make_ref()
     task = %Task{ref: ref, process: process}
     send self(), { :DOWN, ref, process, self(), :noconnection }
-    Task.await(task)
+    catch_exit(Task.await(task)) |> elem(0)
   end
 end

@@ -178,24 +178,28 @@ defmodule Task do
   exit with the same reason as the task.
   """
   @spec await(t, timeout) :: term
-  def await(%Task{process: process, ref: ref}, timeout \\ 5000) do
+  def await(%Task{process: process, ref: ref}=task, timeout \\ 5000) do
     receive do
       { ^ref, reply } ->
         Process.demonitor(ref, [:flush])
         reply
       { :DOWN, ^ref, _, _, :noconnection } ->
-        exit({ :nodedown, get_node(process) })
+        exit { :nodedown, get_node(process) }, task, timeout
       { :DOWN, ^ref, _, _, :normal } ->
-        exit(:timeout)
+        exit :timeout, task, timeout
       { :DOWN, ^ref, _, _, reason } ->
-        exit(reason)
+        exit reason, task, timeout
     after
       timeout ->
         Process.demonitor(ref, [:flush])
-        exit(:timeout)
+        exit :timeout, task, timeout
     end
   end
 
+  defp exit(reason, task, timeout) do
+    exit { reason, { Task, :await, [task, timeout] } }
+  end
+
   defp get_node({ _, n }) when is_atom(n), do: n
-  defp get_node(pid) when is_pid(pid), do: pid
+  defp get_node(pid) when is_pid(pid),     do: pid
 end
