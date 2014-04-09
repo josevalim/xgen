@@ -313,7 +313,7 @@ defmodule GenServer do
   @doc """
   Starts a `GenServer` process without links (outside of a supervision tree).
 
-  See `spawn_link/3` for more information.
+  See `start_link/3` for more information.
   """
   @spec start(module, any, options) :: on_start
   def start(module, args, options \\ []) do
