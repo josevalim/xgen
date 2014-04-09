@@ -242,8 +242,8 @@ defmodule GenServer do
       end
 
       @doc false
-      def handle_call(request, _from, state) do
-        { :stop, { :bad_call, request }, state }
+      def handle_call(msg, _from, state) do
+        { :stop, { :bad_call, msg }, state }
       end
 
       @doc false
@@ -377,8 +377,6 @@ defmodule GenServer do
   This function returns `:ok` immediately, ignoring if the destination node
   or server does not exist. `handle_cast/2` will be called on the server
   to handle the request.
-
-  See `call/3` for a description of valid `server` values.
   """
   @spec cast(server, term) :: :ok
   defdelegate cast(server, request), to: :gen_server

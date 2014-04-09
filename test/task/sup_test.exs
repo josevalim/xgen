@@ -2,12 +2,12 @@ defmodule Task.SupTest do
   use ExUnit.Case, async: true
 
   setup do
-    { :ok, _ } = Task.Sup.start_link(local: :task_sup)
-    :ok
+    { :ok, pid } = Task.Sup.start_link()
+    { :ok, sup: pid }
   end
 
-  teardown do
-    Process.exit(Process.whereis(:task_sup), :shutdown)
+  teardown config do
+    Process.exit(config[:sup], :shutdown)
     :ok
   end
 
@@ -16,13 +16,13 @@ defmodule Task.SupTest do
     send caller, atom
   end
 
-  test "async/1" do
-    task = Task.Sup.async :task_sup, fn ->
+  test "async/1", config do
+    task = Task.Sup.async config[:sup], fn ->
       receive do: (true -> true)
       :done
     end
 
-    assert Task.Sup.children(:task_sup) == [task.process]
+    assert Task.Sup.children(config[:sup]) == [task.process]
 
     # Assert the struct
     assert task.__struct__ == Task
@@ -42,18 +42,19 @@ defmodule Task.SupTest do
     assert_receive { :DOWN, ^ref, _, _, :normal }
   end
 
-  test "async/3" do
-    task = Task.Sup.async(:task_sup, List, :flatten, [[1, [2], 3]])
-    assert Task.Sup.children(:task_sup) == [task.process]
+  test "async/3", config do
+    task = Task.Sup.async(config[:sup], __MODULE__, :wait_and_send, [self(), :done])
+    assert Task.Sup.children(config[:sup]) == [task.process]
 
+    send task.process, true
     assert task.__struct__ == Task
-    assert Task.await(task) == [1, 2, 3]
+    assert Task.await(task) == :done
   end
 
-  test "start_child/1" do
+  test "start_child/1", config do
     parent = self()
-    { :ok, pid } = Task.Sup.start_child(:task_sup, fn -> wait_and_send(parent, :done) end)
-    assert Task.Sup.children(:task_sup) == [pid]
+    { :ok, pid } = Task.Sup.start_child(config[:sup], fn -> wait_and_send(parent, :done) end)
+    assert Task.Sup.children(config[:sup]) == [pid]
 
     { :links, links } = Process.info(self, :links)
     refute pid in links
@@ -62,9 +63,9 @@ defmodule Task.SupTest do
     assert_receive :done
   end
 
-  test "start_child/3" do
-    { :ok, pid } = Task.Sup.start_child(:task_sup, __MODULE__, :wait_and_send, [self(), :done])
-    assert Task.Sup.children(:task_sup) == [pid]
+  test "start_child/3", config do
+    { :ok, pid } = Task.Sup.start_child(config[:sup], __MODULE__, :wait_and_send, [self(), :done])
+    assert Task.Sup.children(config[:sup]) == [pid]
 
     { :links, links } = Process.info(self, :links)
     refute pid in links
@@ -73,28 +74,28 @@ defmodule Task.SupTest do
     assert_receive :done
   end
 
-  test "terminate_child/2" do
-    { :ok, pid } = Task.Sup.start_child(:task_sup, __MODULE__, :wait_and_send, [self(), :done])
-    assert Task.Sup.children(:task_sup) == [pid]
-    assert Task.Sup.terminate_child(:task_sup, pid) == :ok
-    assert Task.Sup.children(:task_sup) == []
-    assert Task.Sup.terminate_child(:task_sup, pid) == :ok
+  test "terminate_child/2", config do
+    { :ok, pid } = Task.Sup.start_child(config[:sup], __MODULE__, :wait_and_send, [self(), :done])
+    assert Task.Sup.children(config[:sup]) == [pid]
+    assert Task.Sup.terminate_child(config[:sup], pid) == :ok
+    assert Task.Sup.children(config[:sup]) == []
+    assert Task.Sup.terminate_child(config[:sup], pid) == :ok
   end
 
-  test "await/1 exits on task throw" do
-    task = Task.Sup.async(:task_sup, fn -> throw :unknown end)
+  test "await/1 exits on task throw", config do
+    task = Task.Sup.async(config[:sup], fn -> throw :unknown end)
     assert { { { :nocatch, :unknown }, _ }, { Task, :await, [^task, 5000] } } =
            catch_exit(Task.await(task))
   end
 
-  test "await/1 exits on task error" do
-    task = Task.Sup.async(:task_sup, fn -> raise "oops" end)
+  test "await/1 exits on task error", config do
+    task = Task.Sup.async(config[:sup], fn -> raise "oops" end)
     assert { { RuntimeError[], _ }, { Task, :await, [^task, 5000] } } =
            catch_exit(Task.await(task))
   end
 
-  test "await/1 exits on task exit" do
-    task = Task.Sup.async(:task_sup, fn -> exit :unknown end)
+  test "await/1 exits on task exit", config do
+    task = Task.Sup.async(config[:sup], fn -> exit :unknown end)
     assert { :unknown, { Task, :await, [^task, 5000] } } =
            catch_exit(Task.await(task))
   end
