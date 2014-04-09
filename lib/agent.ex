@@ -80,9 +80,6 @@ defmodule Agent do
   @typedoc "debug options supported by the `start*` functions"
   @type debug :: [:trace | :log | :statistics | { :log_to_file, Path.t }]
 
-  @typedoc "The timeout in miliseconds or :infinity"
-  @type timeout :: non_neg_integer | :infinity
-
   @typedoc "The agent reference"
   @type agent :: pid | atom | { atom, node } | { :global, term } | { :via, module, term }
 
@@ -151,20 +148,6 @@ defmodule Agent do
   end
 
   @doc """
-  Gets the agent value, executes `fun` and wait asynchronously.
-
-  The function `fun` is sent to the `agent` which invokes the function
-  passing the agent state.
-
-  This function returns a task which emits the result of the function
-  invocation on wait.
-  """
-  @spec async_get(agent, (state -> { term, state })) :: Task.t
-  def async_get(agent, fun) do
-    GenServer.async_call(agent, { :get, fun })
-  end
-
-  @doc """
   Gets and updates the agent state in one operation.
 
   The function `fun` is sent to the `agent` which invokes the function
@@ -177,22 +160,6 @@ defmodule Agent do
   @spec get_and_update(agent, (state -> { a, state }), timeout) :: a when a: var
   def get_and_update(agent, fun, timeout \\ 5000) when is_function(fun, 1) do
     GenServer.call(agent, { :get_and_update, fun }, timeout)
-  end
-
-  @doc """
-  Gets and updates the agent value but wait asynchronously.
-
-  The function `fun` is sent to the `agent` which invokes the function
-  passing the agent state. The function must return a tuple with two
-  elements, the first being the value to returned (i.e. the get value)
-  and the second one is the new state.
-
-  This function returns a task which emits the first element of the
-  tuple on await.
-  """
-  @spec async_get_and_update(agent, (state -> { term, state })) :: Task.t
-  def async_get_and_update(agent, fun) do
-    GenServer.async_call(agent, { :get_and_update, fun })
   end
 
   @doc """

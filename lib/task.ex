@@ -16,14 +16,6 @@ defmodule Task do
   They are implemented by spawning a process that sends a message
   to the caller once the given computation is performed.
 
-  By providing a common pattern for tasks, we allow other parts
-  of the standard library to build on top of tasks. For example,
-  a `GenServer.async_call/2` performs a call and returns a task
-  that can be waited on to read its result:
-
-      task = GenServer.async_call(:my_server, :pop)
-      Task.await(task) #=> :hello
-
   Besides `async/1` and `await/1`, tasks can also be used as part
   of supervision trees and dynamically spawned in remote nodes.
   We will explore all three scenarios next.
@@ -111,7 +103,7 @@ defmodule Task do
   * `:ref` - the task monitor reference;
 
   """
-  defstruct process: nil, ref: nil
+  defstruct pid: nil, ref: nil
 
   @doc """
   Starts a task as part of a supervision tree.
@@ -158,7 +150,7 @@ defmodule Task do
     pid = :proc_lib.spawn_link(Task.Supervised, :async, [self(), mfa])
     ref = Process.monitor(pid)
     send(pid, { self(), ref })
-    %Task{process: pid, ref: ref}
+    %Task{pid: pid, ref: ref}
   end
 
   @doc """
@@ -169,7 +161,7 @@ defmodule Task do
   exit with the same reason as the task.
   """
   @spec await(t, timeout) :: term
-  def await(%Task{process: process, ref: ref}=task, timeout \\ 5000) do
+  def await(%Task{pid: process, ref: ref}=task, timeout \\ 5000) do
     receive do
       { ^ref, reply } ->
         Process.demonitor(ref, [:flush])

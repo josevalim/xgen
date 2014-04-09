@@ -69,7 +69,7 @@ defmodule Task.Sup do
     { :ok, pid } = Supervisor.start_child(supervisor, [self(), { module, fun, args }])
     ref = Process.monitor(pid)
     send pid, { self(), ref }
-    %Task{process: pid, ref: ref}
+    %Task{pid: pid, ref: ref}
   end
 
   @doc """

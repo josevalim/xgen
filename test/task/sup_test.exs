@@ -22,19 +22,19 @@ defmodule Task.SupTest do
       :done
     end
 
-    assert Task.Sup.children(config[:sup]) == [task.process]
+    assert Task.Sup.children(config[:sup]) == [task.pid]
 
     # Assert the struct
     assert task.__struct__ == Task
-    assert is_pid task.process
+    assert is_pid task.pid
     assert is_reference task.ref
 
     # Assert the link
     { :links, links } = Process.info(self, :links)
-    assert task.process in links
+    assert task.pid in links
 
     # Run the task
-    send task.process, true
+    send task.pid, true
 
     # Assert response and monitoring messages
     ref = task.ref
@@ -44,9 +44,9 @@ defmodule Task.SupTest do
 
   test "async/3", config do
     task = Task.Sup.async(config[:sup], __MODULE__, :wait_and_send, [self(), :done])
-    assert Task.Sup.children(config[:sup]) == [task.process]
+    assert Task.Sup.children(config[:sup]) == [task.pid]
 
-    send task.process, true
+    send task.pid, true
     assert task.__struct__ == Task
     assert Task.await(task) == :done
   end

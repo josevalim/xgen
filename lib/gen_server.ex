@@ -225,9 +225,6 @@ defmodule GenServer do
   @typedoc "debug options supported by the `start*` functions"
   @type debug :: [:trace | :log | :statistics | { :log_to_file, Path.t }]
 
-  @typedoc "The timeout in miliseconds or :infinity"
-  @type timeout :: non_neg_integer | :infinity
-
   @typedoc "The server reference"
   @type server :: pid | atom | { atom, node } | { :global, term } | { :via, module, term }
 
@@ -351,24 +348,6 @@ defmodule GenServer do
   @spec call(server, term, timeout) :: term
   def call(server, request, timeout \\ 5000) do
     :gen_server.call(server, request, timeout)
-  end
-
-  @doc """
-  Makes a call to the server but wait for its reply asynchronously.
-
-  Instead, a task is returned which must be awaited on with `Task.await/2`.
-  `handle_call/3` will be called on the server to handle the request.
-  """
-  @spec async_call(server, term) :: Task.t
-  def async_call(server, request) do
-    try do
-      Task.Supervised.call(server, :"$gen_call", request)
-    catch
-      :error, reason ->
-        exit({ { reason, System.stacktrace }, { :gen_server, :async_call, [server, request] } })
-      :exit, reason ->
-        exit({ reason, { :gen_server, :async_call, [server, request] } })
-    end
   end
 
   @doc """

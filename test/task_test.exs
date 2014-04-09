@@ -14,15 +14,15 @@ defmodule TaskTest do
 
     # Assert the struct
     assert task.__struct__ == Task
-    assert is_pid task.process
+    assert is_pid task.pid
     assert is_reference task.ref
 
     # Assert the link
     { :links, links } = Process.info(self, :links)
-    assert task.process in links
+    assert task.pid in links
 
     # Run the task
-    send task.process, true
+    send task.pid, true
 
     # Assert response and monitoring messages
     ref = task.ref
@@ -93,7 +93,7 @@ defmodule TaskTest do
 
   defp catch_noconnection(process) do
     ref  = make_ref()
-    task = %Task{ref: ref, process: process}
+    task = %Task{ref: ref, pid: process}
     send self(), { :DOWN, ref, process, self(), :noconnection }
     catch_exit(Task.await(task)) |> elem(0)
   end

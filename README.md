@@ -87,7 +87,7 @@ xgen adds a Task module which is useful for spawning processes that compute a va
     res  = do_some_other_work()
     res + Task.await(task)
 
-Although tasks map directy to the underlying OTP semantics (using processes), by providing a common pattern, we allow other parts of the standard library to rely on them. For example, `GenServer.async_call/2` performs a `call/2` operation and returns a Task struct that can be awaited on.
+Although tasks map directy to the underlying OTP semantics (using processes), by providing a common pattern, we allow other parts of the standard library to rely on them.
 
 Tasks also ship with a `Task.Sup` module, which can be used to supervise tasks and even allow tasks to be spawned on remote nodes:
 

@@ -161,9 +161,6 @@ defmodule GenEvent do
   @typedoc "Supported values for new handlers"
   @type handler :: module | { module, term }
 
-  @typedoc "The timeout in miliseconds or :infinity"
-  @type timeout :: non_neg_integer | :infinity
-
   @doc """
   Defines a `GenEvent` stream.
 
@@ -346,29 +343,6 @@ defmodule GenEvent do
   @spec call(manager, handler, term, timeout) ::  term | { :error, term }
   def call(manager, handler, request, timeout \\ 5000) do
     :gen_event.call(manager, handler, request, timeout)
-  end
-
-  @doc """
-  Makes a call to the server but don't wait for its reply.
-
-  Instead, a task is returned which must be awaited on with `Task.await/2`.
-  The event manager will call `handle_call/2` to handle the request.
-
-  On await, the response may be `{ :error, :bad_module }` if the
-  specified event handler is not installed.
-  """
-  @spec async_call(manager, handler, term) :: Task.t
-  def async_call(manager, handler, request) do
-    cmd = { :call, handler, request }
-
-    try do
-      Task.Supervised.call(manager, self(), cmd)
-    catch
-      :error, reason ->
-        exit({ { reason, System.stacktrace }, { :gen_event, :async_call, [manager, handler, request] } })
-      :exit, reason ->
-        exit({ reason, { :gen_event, :async_call, [manager, handler, request] } })
-    end
   end
 
   @doc """

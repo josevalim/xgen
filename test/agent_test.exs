@@ -15,13 +15,13 @@ defmodule AgentTest do
     refute Process.alive?(pid)
   end
 
-  test "start/2 workflow with registered name and await" do
+  test "start/2 workflow with registered name" do
     { :ok, pid } = Agent.start(fn -> %{} end, local: :agent)
     assert Process.info(pid, :registered_name) == { :registered_name, :agent }
     assert Agent.cast(:agent, &Map.put(&1, :hello, :world)) == :ok
-    assert Agent.async_get(:agent, &Map.get(&1, :hello)) |> Task.await == :world
-    assert Agent.async_get_and_update(:agent, &Map.pop(&1, :hello)) |> Task.await == :world
-    assert Agent.async_get(:agent, &(&1)) |> Task.await == %{}
+    assert Agent.get(:agent, &Map.get(&1, :hello)) == :world
+    assert Agent.get_and_update(:agent, &Map.pop(&1, :hello)) == :world
+    assert Agent.get(:agent, &(&1)) == %{}
     assert Agent.stop(:agent) == :ok
     assert Process.info(pid, :registered_name) == nil
   end
