@@ -328,7 +328,7 @@ defmodule GenServer do
   end
 
   @doc """
-  Makes a synchronous call to the `server`.
+  Makes a synchronous call to the `server` and wait for its reply.
 
   The client sends the given `request` to the server and waits until a reply
   arrives or a timeout occurs. `handle_call/3` will be called on the server
@@ -354,7 +354,7 @@ defmodule GenServer do
   end
 
   @doc """
-  Makes a call to the server but don't wait for its reply.
+  Makes a call to the server but wait for its reply asynchronously.
 
   Instead, a task is returned which must be awaited on with `Task.await/2`.
   `handle_call/3` will be called on the server to handle the request.

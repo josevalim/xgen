@@ -16,6 +16,10 @@ defmodule Agent.Server do
     { :reply, reply, state }
   end
 
+  def handle_call({ :update, fun }, _from, state) do
+    { :reply, :ok, fun.(state) }
+  end
+
   def handle_call(:stop, _from, state) do
     { :stop, :normal, :ok, state }
   end
@@ -24,7 +28,7 @@ defmodule Agent.Server do
     super(msg, from, state)
   end
 
-  def handle_cast({ :update, fun }, state) do
+  def handle_cast(fun, state) when is_function(fun, 1) do
     { :noreply, fun.(state) }
   end
 

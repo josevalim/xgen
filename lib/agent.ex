@@ -122,7 +122,7 @@ defmodule Agent do
   `{ :error, reason }`.
   """
   @spec start_link((() -> term), options) :: on_start
-  def start_link(fun, options \\ []) do
+  def start_link(fun, options \\ []) when is_function(fun, 0) do
     GenServer.start_link(Agent.Server, fun, options)
   end
 
@@ -132,12 +132,12 @@ defmodule Agent do
   See `start_link/2` for more information.
   """
   @spec start((() -> term), options) :: on_start
-  def start(fun, options \\ []) do
+  def start(fun, options \\ []) when is_function(fun, 0) do
     GenServer.start(Agent.Server, fun, options)
   end
 
   @doc """
-  Gets the value from an agent.
+  Gets the agent value and executes the given function.
 
   The function `fun` is sent to the `agent` which invokes the function
   passing the agent state. The result of the function invocation is
@@ -151,6 +151,20 @@ defmodule Agent do
   end
 
   @doc """
+  Gets the agent value, executes `fun` and wait asynchronously.
+
+  The function `fun` is sent to the `agent` which invokes the function
+  passing the agent state.
+
+  This function returns a task which emits the result of the function
+  invocation on wait.
+  """
+  @spec async_get(agent, (state -> { term, state })) :: Task.t
+  def async_get(agent, fun) do
+    GenServer.async_call(agent, { :get, fun })
+  end
+
+  @doc """
   Gets and updates the agent state in one operation.
 
   The function `fun` is sent to the `agent` which invokes the function
@@ -161,23 +175,52 @@ defmodule Agent do
   A timeout can also be specified (it has a default value of 5000).
   """
   @spec get_and_update(agent, (state -> { a, state }), timeout) :: a when a: var
-  def get_and_update(agent, fun, timeout \\ 5000) do
+  def get_and_update(agent, fun, timeout \\ 5000) when is_function(fun, 1) do
     GenServer.call(agent, { :get_and_update, fun }, timeout)
   end
 
   @doc """
-  Updates the agent state asynchronously.
+  Gets and updates the agent value but wait asynchronously.
+
+  The function `fun` is sent to the `agent` which invokes the function
+  passing the agent state. The function must return a tuple with two
+  elements, the first being the value to returned (i.e. the get value)
+  and the second one is the new state.
+
+  This function returns a task which emits the first element of the
+  tuple on await.
+  """
+  @spec async_get_and_update(agent, (state -> { term, state })) :: Task.t
+  def async_get_and_update(agent, fun) do
+    GenServer.async_call(agent, { :get_and_update, fun })
+  end
+
+  @doc """
+  Updates the agent state.
 
   The function `fun` is sent to the `agent` which invokes the function
   passing the agent state. The function must return the new state.
 
-  Note this function returns `:ok` immediately, ignoring if the destination
-  node or agent does not exist. If you want to do synchronous updates
-  and verify the agent exists, use `get_and_update/3` instead.
+  A timeout can also be specified (it has a default value of 5000).
+  This function always return `:ok`.
   """
   @spec update(agent, (state -> state)) :: :ok
-  def update(agent, fun) do
-    GenServer.cast(agent, { :update, fun })
+  def update(agent, fun, timeout \\ 5000) when is_function(fun, 1) do
+    GenServer.call(agent, { :update, fun }, timeout)
+  end
+
+  @doc """
+  Performs a cast (fire and forget) operation on the agent state.
+
+  The function `fun` is sent to the `agent` which invokes the function
+  passing the agent state. The function must return the new state.
+
+  Note this function returns `:ok` immediately, ignoring if the
+  destination node or agent does not exist.
+  """
+  @spec cast(agent, (state -> state)) :: :ok
+  def cast(agent, fun) when is_function(fun, 1) do
+    GenServer.cast(agent, fun)
   end
 
   @doc """
