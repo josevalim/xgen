@@ -62,8 +62,18 @@ defmodule Agent do
 
   ## Name registering
 
-  An agent is bound to the same name registering rules as a `GenServer`.
-  Read more about it in the `GenServer` docs.
+  Since agents are abstractions around state, they are recommended to
+  run only on local nodes. For this reason, agents can only be registered
+  locally on `start_link/2`:
+
+  * `:local` - the agent is registered locally with the given name (an atom)
+    using `Process.register/2`;
+
+  Once the agent is started, the remaining functions in this module expect
+  an agent reference in one of the following formats:
+
+  * a `pid`
+  * an `atom` if the server is locally registered
   """
 
   @typedoc "Return values of `start*` functions"
@@ -81,10 +91,16 @@ defmodule Agent do
   @type debug :: [:trace | :log | :statistics | { :log_to_file, Path.t }]
 
   @typedoc "The agent reference"
-  @type agent :: pid | atom | { atom, node } | { :global, term } | { :via, module, term }
+  @type agent :: pid | atom
 
   @typedoc "The agent state"
   @type state :: term
+
+  defmacrop is_agent(agent) do
+    quote do
+      is_pid(unquote(agent)) or is_atom(unquote(agent))
+    end
+  end
 
   @doc """
   Starts an agent linked to the current process.
@@ -97,10 +113,10 @@ defmodule Agent do
 
   ## Options
 
-  The `:local`, `:global` and `:via` options are used for name registered as
-  described in the module documentation. If the option `:timeout` option is
-  present, the server is allowed to spend the given milliseconds initializing or
-  it will be terminated and the start function will return `{ :error, :timeout }`.
+  The `:local` option is used for name registered as described in the module
+  documentation. If the option `:timeout` option is present, the agent is
+  allowed to spend the given milliseconds initializing or it will be terminated
+  and the start function will return `{ :error, :timeout }`.
 
   If the option `:debug` is present, the corresponding function in the
   [`:sys` module](http://www.erlang.org/doc/man/sys.html) will be invoked.
@@ -143,7 +159,7 @@ defmodule Agent do
   A timeout can also be specified (it has a default value of 5000).
   """
   @spec get(agent, (state -> a), timeout) :: a when a: var
-  def get(agent, fun, timeout \\ 5000) when is_function(fun, 1) do
+  def get(agent, fun, timeout \\ 5000) when is_agent(agent) and is_function(fun, 1) do
     GenServer.call(agent, { :get, fun }, timeout)
   end
 
@@ -158,7 +174,7 @@ defmodule Agent do
   A timeout can also be specified (it has a default value of 5000).
   """
   @spec get_and_update(agent, (state -> { a, state }), timeout) :: a when a: var
-  def get_and_update(agent, fun, timeout \\ 5000) when is_function(fun, 1) do
+  def get_and_update(agent, fun, timeout \\ 5000) when is_agent(agent) and is_function(fun, 1) do
     GenServer.call(agent, { :get_and_update, fun }, timeout)
   end
 
@@ -172,7 +188,7 @@ defmodule Agent do
   This function always return `:ok`.
   """
   @spec update(agent, (state -> state)) :: :ok
-  def update(agent, fun, timeout \\ 5000) when is_function(fun, 1) do
+  def update(agent, fun, timeout \\ 5000) when is_agent(agent) and is_function(fun, 1) do
     GenServer.call(agent, { :update, fun }, timeout)
   end
 
@@ -186,7 +202,7 @@ defmodule Agent do
   destination node or agent does not exist.
   """
   @spec cast(agent, (state -> state)) :: :ok
-  def cast(agent, fun) when is_function(fun, 1) do
+  def cast(agent, fun) when is_agent(agent) and is_function(fun, 1) do
     GenServer.cast(agent, fun)
   end
 
@@ -196,7 +212,7 @@ defmodule Agent do
   Returns `:ok` if the agent is stopped in the given `timeout`.
   """
   @spec stop(agent, timeout) :: :ok
-  def stop(agent, timeout \\ 5000) do
+  def stop(agent, timeout \\ 5000) when is_agent(agent) do
     GenServer.call(agent, :stop, timeout)
   end
 end
