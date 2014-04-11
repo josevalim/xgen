@@ -77,7 +77,7 @@ Supervisors in xgen work similarly to OTP's supervisors except by:
 
 ## Application
 
-...
+xgen also provides an Application module. The goal of the `Application` module is to provide the callback, required for defining application module callbacks and a set of convenience functions for working with the application environment and the application directory.
 
 ## Task
 
@@ -99,7 +99,33 @@ Tasks also ship with a `Task.Sup` module, which can be used to supervise tasks a
 
 ## Agent
 
-...
+Agents are a simple abstraction around state.
+
+Often in Elixir there is a need to share or store state that must be accessed from different processes or by a same process in different points in time.
+
+The Agent module provides a basic server implementation that allows state to be retrieved and updated via a simple API. For example, in the Mix tool that ships with Elixir, we need to keep a set of all tasks executed by a given project. Since this set is shared, we can implement it with an Agent:
+
+    defmodule Mix.TasksServer do
+      def start_link do
+        Agent.start_link(fn -> HashSet.new end, local: __MODULE__)
+      end
+
+      @doc "Checks if the task has already executed"
+      def executed?(task, project) do
+        item = { task, project }
+        Agent.get(__MODULE__, fn set ->
+          item in set
+        end)
+      end
+
+      @doc "Marks a task as executed"
+      def put_task(task, project) do
+        item = { task, project }
+        Agent.update(__MODULE__, &Set.put(item, &1))
+      end
+    end
+
+Note that agents still provide a segregation in between the client and server APIs, as seen in GenServers. In particular, all code inside the function passed to the agent is executed by the agent. This distinction is important because you may want to avoid expensive operations inside the agent, as it will effectively block the agent until the request is fullfilled.
 
 ## License
 
