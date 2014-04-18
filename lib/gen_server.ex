@@ -27,17 +27,8 @@ defmodule GenServer do
           { :reply, h, t }
         end
 
-        def handle_call(request, from, state) do
-          # Call the default implementation from GenServer
-          super(request, from, state)
-        end
-
         def handle_cast({ :push, item }, state) do
           { :noreply, [item|state] }
-        end
-
-        def handle_cast(request, state) do
-          super(request, state)
         end
       end
 
