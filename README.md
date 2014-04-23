@@ -65,19 +65,33 @@ Streams are guaranteed to be safe since a subscription is only started when stre
 
 Streams also accept two options: `:timeout` which leads to an error if the handler does not receive a message in X milliseconds and `:duration` which controls how long the subscription should live. Streams can also be given ids, allowing them to be cancelled with `GenEvent.cancel_streams(stream)`.
 
-The benefit of such functionality is that events can be published and consumed without the need for callback modules, which is useful for short-term/simple subscription schemas.
+The benefit of such functionality is that events can be published and consumed without the need for callback modules.
 
 ## Supervisor
 
 Supervisors in xgen work similarly to OTP's supervisors except by:
 
-1. The addition of `Supervisor.Spec` that helps developers define their supervision tree with clearer options;
+1. The addition of `Supervisor.Spec` that helps developers define their supervision tree with clearer options instead of working with tuples;
 
 2. The addition of `Supervisor.start_link/2` which allows supervision trees to be defined without a explicit module with callbacks;
 
+Here is an example:
+
+    # Import helpers for defining supervisors
+    import Supervisor.Spec
+
+    # We are going to supervise the Stack server which will
+    # be started with a argument containing [:hello]
+    children = [
+      worker(Stack, [[:hello]])
+    ]
+
+    # Start the supervisor with our one children
+    {:ok, pid} = Supervisor.start_link(children, strategy: :one_for_one)
+
 ## Application
 
-xgen also provides an Application module. The goal of the `Application` module is to provide the callback, required for defining application module callbacks and a set of convenience functions for working with the application environment and the application directory.
+xgen also provides an Application module. The goal of the `Application` module is to provide the application callback and a set of convenience functions for working with the application environment and the application directory (as in Erlang).
 
 ## Task
 
@@ -96,6 +110,8 @@ Tasks also ship with a `Task.Sup` module, which can be used to supervise tasks a
 
     # On the client
     Task.Sup.async({ :tasks_sup, :remote@local }, fn -> do_work() end)
+
+This is similar to the `:rpc` funcitonality except you have explicitly control of the supervisor (instead of an internal `:rex` one) also allowing tasks to be supervised dynamically.
 
 ## Agent
 
@@ -126,6 +142,8 @@ The Agent module provides a basic server implementation that allows state to be 
     end
 
 Note that agents still provide a segregation in between the client and server APIs, as seen in GenServers. In particular, all code inside the function passed to the agent is executed by the agent. This distinction is important because you may want to avoid expensive operations inside the agent, as it will effectively block the agent until the request is fullfilled.
+
+Agents have some drawbacks when it comes to rolling up code in a distributed environment and as such are still under discussion.
 
 ## License
 
