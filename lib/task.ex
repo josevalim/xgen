@@ -147,10 +147,15 @@ defmodule Task do
   @spec async(module, atom, [term]) :: t
   def async(mod, fun, args) do
     mfa = { mod, fun, args }
-    pid = :proc_lib.spawn_link(Task.Supervised, :async, [self(), mfa])
+    pid = :proc_lib.spawn_link(__MODULE__, :reply, [self(), mfa])
     ref = Process.monitor(pid)
     send(pid, { self(), ref })
     %Task{pid: pid, ref: ref}
+  end
+
+  @doc false
+  def reply(caller, mfa) do
+    receive do: ({ ^caller, ref } -> Task.Supervised.async(caller, ref, mfa))
   end
 
   @doc """
