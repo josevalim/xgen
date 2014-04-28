@@ -1,13 +1,13 @@
-defmodule Task.SupTest do
+defmodule Task.SupervisorTest do
   use ExUnit.Case, async: true
 
   setup do
-    { :ok, pid } = Task.Sup.start_link()
-    { :ok, sup: pid }
+    { :ok, pid } = Task.Supervisor.start_link()
+    { :ok, supervisor: pid }
   end
 
   teardown config do
-    Process.exit(config[:sup], :shutdown)
+    Process.exit(config[:supervisor], :shutdown)
     :ok
   end
 
@@ -17,12 +17,12 @@ defmodule Task.SupTest do
   end
 
   test "async/1", config do
-    task = Task.Sup.async config[:sup], fn ->
+    task = Task.Supervisor.async config[:supervisor], fn ->
       receive do: (true -> true)
       :done
     end
 
-    assert Task.Sup.children(config[:sup]) == [task.pid]
+    assert Task.Supervisor.children(config[:supervisor]) == [task.pid]
 
     # Assert the struct
     assert task.__struct__ == Task
@@ -43,8 +43,8 @@ defmodule Task.SupTest do
   end
 
   test "async/3", config do
-    task = Task.Sup.async(config[:sup], __MODULE__, :wait_and_send, [self(), :done])
-    assert Task.Sup.children(config[:sup]) == [task.pid]
+    task = Task.Supervisor.async(config[:supervisor], __MODULE__, :wait_and_send, [self(), :done])
+    assert Task.Supervisor.children(config[:supervisor]) == [task.pid]
 
     send task.pid, true
     assert task.__struct__ == Task
@@ -53,8 +53,8 @@ defmodule Task.SupTest do
 
   test "start_child/1", config do
     parent = self()
-    { :ok, pid } = Task.Sup.start_child(config[:sup], fn -> wait_and_send(parent, :done) end)
-    assert Task.Sup.children(config[:sup]) == [pid]
+    { :ok, pid } = Task.Supervisor.start_child(config[:supervisor], fn -> wait_and_send(parent, :done) end)
+    assert Task.Supervisor.children(config[:supervisor]) == [pid]
 
     { :links, links } = Process.info(self, :links)
     refute pid in links
@@ -64,8 +64,8 @@ defmodule Task.SupTest do
   end
 
   test "start_child/3", config do
-    { :ok, pid } = Task.Sup.start_child(config[:sup], __MODULE__, :wait_and_send, [self(), :done])
-    assert Task.Sup.children(config[:sup]) == [pid]
+    { :ok, pid } = Task.Supervisor.start_child(config[:supervisor], __MODULE__, :wait_and_send, [self(), :done])
+    assert Task.Supervisor.children(config[:supervisor]) == [pid]
 
     { :links, links } = Process.info(self, :links)
     refute pid in links
@@ -75,27 +75,27 @@ defmodule Task.SupTest do
   end
 
   test "terminate_child/2", config do
-    { :ok, pid } = Task.Sup.start_child(config[:sup], __MODULE__, :wait_and_send, [self(), :done])
-    assert Task.Sup.children(config[:sup]) == [pid]
-    assert Task.Sup.terminate_child(config[:sup], pid) == :ok
-    assert Task.Sup.children(config[:sup]) == []
-    assert Task.Sup.terminate_child(config[:sup], pid) == :ok
+    { :ok, pid } = Task.Supervisor.start_child(config[:supervisor], __MODULE__, :wait_and_send, [self(), :done])
+    assert Task.Supervisor.children(config[:supervisor]) == [pid]
+    assert Task.Supervisor.terminate_child(config[:supervisor], pid) == :ok
+    assert Task.Supervisor.children(config[:supervisor]) == []
+    assert Task.Supervisor.terminate_child(config[:supervisor], pid) == :ok
   end
 
   test "await/1 exits on task throw", config do
-    task = Task.Sup.async(config[:sup], fn -> throw :unknown end)
+    task = Task.Supervisor.async(config[:supervisor], fn -> throw :unknown end)
     assert { { { :nocatch, :unknown }, _ }, { Task, :await, [^task, 5000] } } =
            catch_exit(Task.await(task))
   end
 
   test "await/1 exits on task error", config do
-    task = Task.Sup.async(config[:sup], fn -> raise "oops" end)
+    task = Task.Supervisor.async(config[:supervisor], fn -> raise "oops" end)
     assert { { RuntimeError[], _ }, { Task, :await, [^task, 5000] } } =
            catch_exit(Task.await(task))
   end
 
   test "await/1 exits on task exit", config do
-    task = Task.Sup.async(config[:sup], fn -> exit :unknown end)
+    task = Task.Supervisor.async(config[:supervisor], fn -> exit :unknown end)
     assert { :unknown, { Task, :await, [^task, 5000] } } =
            catch_exit(Task.await(task))
   end

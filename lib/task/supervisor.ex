@@ -1,4 +1,4 @@
-defmodule Task.Sup do
+defmodule Task.Supervisor do
   @moduledoc """
   A tasks supervisor.
 
@@ -50,7 +50,7 @@ defmodule Task.Sup do
   @doc """
   Starts a task that can be awaited on.
 
-  The `supervisor` must be a reference as defined in `Task.Sup`.
+  The `supervisor` must be a reference as defined in `Task.Supervisor`.
   For more information on tasks, check the `Task` module.
   """
   @spec async(Supervisor.supervisor, fun) :: Task.t
@@ -61,7 +61,7 @@ defmodule Task.Sup do
   @doc """
   Starts a task that can be awaited on.
 
-  The `supervisor` must be a reference as defined in `Task.Sup`.
+  The `supervisor` must be a reference as defined in `Task.Supervisor`.
   For more information on tasks, check the `Task` module.
   """
   @spec async(Supervisor.supervisor, module, atom, [term]) :: Task.t
