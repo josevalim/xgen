@@ -25,13 +25,13 @@ defmodule Task.Supervisor do
 
   The supported options are:
 
-  * `:local` - the supervivsor is registered locally with the given name (an atom)
+  * `:local` - the supervisor is registered locally with the given name (an atom)
     using `Process.register/2`;
 
-  * `:global`- the supervivsor is registered globally with the given term using
+  * `:global`- the supervisor is registered globally with the given term using
     the functions in the `:global` module;
 
-  * `:via` - the supervivsor is registered with the given mechanism and name. The
+  * `:via` - the supervisor is registered with the given mechanism and name. The
     `:via` option expects a module name to control the registration mechanism
     and the name in a tuple as option;
 
