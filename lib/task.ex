@@ -56,7 +56,7 @@ defmodule Task do
 
   Since such tasks are supervised and not directly linked to
   the caller, they cannot be awaited on. For such reason,
-  differently from `async/1`, `start_link/1` returns `{ :ok, pid }`
+  differently from `async/1`, `start_link/1` returns `{:ok, pid}`
   (which is the result expected by supervision trees).
 
   Such tasks are useful as workers that run during your application
@@ -69,7 +69,7 @@ defmodule Task do
   The `Task.Sup` module allows developers to start supervisors
   that dynamically supervise tasks:
 
-      { :ok, pid } = Task.Sup.start_link()
+      {:ok, pid} = Task.Sup.start_link()
       Task.Sup.async(pid, fn -> do_work() end)
 
   `Task.Sup` also makes it possible to spawn tasks in remote nodes as
@@ -79,7 +79,7 @@ defmodule Task do
       Task.Sup.start_link(local: :tasks_sup)
 
       # On the client
-      Task.Sup.async({ :tasks_sup, :remote@local }, fn -> do_work() end)
+      Task.Sup.async({:tasks_sup, :remote@local}, fn -> do_work() end)
 
   `Task.Sup` is more often started in your supervision tree as:
 
@@ -108,7 +108,7 @@ defmodule Task do
   @doc """
   Starts a task as part of a supervision tree.
   """
-  @spec start_link(fun) :: { :ok, pid }
+  @spec start_link(fun) :: {:ok, pid}
   def start_link(fun) do
     start_link(:erlang, :apply, [fun, []])
   end
@@ -116,9 +116,9 @@ defmodule Task do
   @doc """
   Starts a task as part of a supervision tree.
   """
-  @spec start_link(module, atom, [term]) :: { :ok, pid }
+  @spec start_link(module, atom, [term]) :: {:ok, pid}
   def start_link(mod, fun, args) do
-    Task.Supervised.start_link(:undefined, { mod, fun, args })
+    Task.Supervised.start_link(:undefined, {mod, fun, args})
   end
 
   @doc """
@@ -130,7 +130,7 @@ defmodule Task do
 
   ## Task's message format
 
-  The reply sent by the task will be in the format `{ ref, msg }`,
+  The reply sent by the task will be in the format `{ref, msg}`,
   where `ref` is the monitoring reference hold by the task.
   """
   @spec async(fun) :: t
@@ -146,10 +146,10 @@ defmodule Task do
   """
   @spec async(module, atom, [term]) :: t
   def async(mod, fun, args) do
-    mfa = { mod, fun, args }
+    mfa = {mod, fun, args}
     pid = :proc_lib.spawn_link(Task.Supervised, :async, [self(), mfa])
     ref = Process.monitor(pid)
-    send(pid, { self(), ref })
+    send(pid, {self(), ref})
     %Task{pid: pid, ref: ref}
   end
 
@@ -163,12 +163,12 @@ defmodule Task do
   @spec await(t, timeout) :: term
   def await(%Task{pid: process, ref: ref}=task, timeout \\ 5000) do
     receive do
-      { ^ref, reply } ->
+      {^ref, reply} ->
         Process.demonitor(ref, [:flush])
         reply
-      { :DOWN, ^ref, _, _, :noconnection } ->
-        exit { :nodedown, get_node(process) }, task, timeout
-      { :DOWN, ^ref, _, _, reason } ->
+      {:DOWN, ^ref, _, _, :noconnection} ->
+        exit {:nodedown, get_node(process)}, task, timeout
+      {:DOWN, ^ref, _, _, reason} ->
         exit reason, task, timeout
     after
       timeout ->
@@ -178,9 +178,9 @@ defmodule Task do
   end
 
   defp exit(reason, task, timeout) do
-    exit { reason, { Task, :await, [task, timeout] } }
+    exit {reason, {Task, :await, [task, timeout]}}
   end
 
-  defp get_node({ _, n }) when is_atom(n), do: n
+  defp get_node({_, n}) when is_atom(n), do: n
   defp get_node(pid) when is_pid(pid),     do: pid
 end

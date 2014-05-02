@@ -25,11 +25,11 @@ defmodule Supervisor do
         end
 
         def handle_call(:pop, _from, [h|t]) do
-          { :reply, h, t }
+          {:reply, h, t}
         end
 
-        def handle_cast({ :push, h }, _from, t) do
-          { :noreply, [h|t] }
+        def handle_cast({:push, h}, _from, t) do
+          {:noreply, [h|t]}
         end
       end
 
@@ -38,8 +38,8 @@ defmodule Supervisor do
       # Import helpers for defining supervisors
       import Supervisor.Spec
 
-      # We are going to supervise the Stack module which will
-      # be started with a single Stack containing [:hello]
+      # We are going to supervise the Stack server which will
+      # be started with a single argument [:hello]
       children = [
         worker(Stack, [[:hello]])
       ]
@@ -54,7 +54,7 @@ defmodule Supervisor do
       GenServer.call(:sup_stack, :pop)
       #=> :hello
 
-      GenServer.cast(:sup_stack, { :push, :world })
+      GenServer.cast(:sup_stack, {:push, :world})
       #=> :ok
 
       GenServer.call(:sup_stack, :pop)
@@ -118,25 +118,25 @@ defmodule Supervisor do
   end
 
   @typedoc "Return values of `start_link` functions"
-  @type on_start :: { :ok, pid } | :ignore |
-                    { :error, { :already_started, pid } | { :shutdown, term } | term }
+  @type on_start :: {:ok, pid} | :ignore |
+                    {:error, {:already_started, pid} | {:shutdown, term} | term}
 
   @typedoc "Return values of `start_child` functions"
-  @type on_start_child :: { :ok, child } | { :ok, child, info :: term } |
-                          { :error, { :already_started, child } | :already_present | term }
+  @type on_start_child :: {:ok, child} | {:ok, child, info :: term} |
+                          {:error, {:already_started, child} | :already_present | term}
 
   @type child :: pid | :undefined
 
   @typedoc "Options used by the `start*` functions"
   @type options :: [local: atom,
                     global: term,
-                    via: { module, name :: term },
+                    via: {module, name :: term},
                     strategy: Supervisor.Spec.strategy,
                     max_restarts: non_neg_integer,
                     max_seconds: non_neg_integer]
 
   @typedoc "The supervisor reference"
-  @type supervisor :: pid | atom | { atom, node } | { :global, term } | { :via, module, term }
+  @type supervisor :: pid | atom | {atom, node} | {:global, term} | {:via, module, term}
 
   @doc """
   Starts a supervisor with the given children.
@@ -150,17 +150,17 @@ defmodule Supervisor do
   section in the `GenServer` module docs.
 
   If the supervisor and its child processes are successfully created
-  (i.e. if all child process start functions return `{ :ok, child }`,
-  `{ :ok, child, info }`, or `:ignore`) the function returns
-  `{ :ok, pid }`, where `pid` is the pid of the supervisor. If there
+  (i.e. if all child process start functions return `{:ok, child}`,
+  `{:ok, child, info}`, or `:ignore`) the function returns
+  `{:ok, pid}`, where `pid` is the pid of the supervisor. If there
   already exists a process with the specified name the function returns
-  `{ :error, { :already_started, pid } }`, where pid is the pid of that
+  `{:error, {:already_started, pid}}`, where pid is the pid of that
   process.
 
   If any child process start function fails or returns an error tuple or
   an erroneous value, the supervisor will first terminate all already
   started child processes with reason `:shutdown` and then terminate
-  itself and return `{ :error, { :shutdown, reason } }`.
+  itself and return `{:error, {:shutdown, reason}}`.
   """
   @spec start_link([tuple], options) :: on_start
   def start_link(children, options) when is_list(children) do
@@ -179,7 +179,7 @@ defmodule Supervisor do
   If the `init/1` callback returns `:ignore`, this function returns
   `:ignore` as well and the supervisor terminates with reason `:normal`.
   If it fails or returns an incorrect value, this function returns
-  `{ :error, term } where term is a term with information about the
+  `{:error, term} where term is a term with information about the
   error, and the supervisor terminates with reason `term`.
 
   A set of options can also be given in order to register a supervisor
@@ -209,17 +209,17 @@ defmodule Supervisor do
   `child_spec` is discarded and the function returns an error with `:already_started`
   or `:already_present` if the corresponding child process is running or not.
 
-  If the child process start function returns `{ :ok, child }` or `{ :ok, child, info }`,
+  If the child process start function returns `{:ok, child}` or `{:ok, child, info}`,
   the child specification and pid is added to the supervisor and the function returns
   the same value.
 
   If the child process start function returns `:ignore, the child specification is
   added to the supervisor, the pid is set to undefined and the function returns
-  `{ :ok, :undefined }`.
+  `{:ok, :undefined}`.
 
   If the child process start function returns an error tuple or an erroneous value,
   or if it fails, the child specification is discarded and the function returns
-  `{ :error, error }` where error is a term containing information about the error
+  `{:error, error}` where error is a term containing information about the error
   and child specification.
   """
   @spec start_child(supervisor, Supervisor.Spec.spec | [term]) :: on_start_child
@@ -234,16 +234,16 @@ defmodule Supervisor do
 
   In case of a `simple_one_for_one` supervisor, a pid is expected. If the child
   specification identifier is given instead instead of a `pid`, the function will
-  return `{ :error, :simple_one_for_one }`.
+  return `{:error, :simple_one_for_one}`.
 
   Non-temporary child process may later be restarted by the supervisor. The child
   process can also be restarted explicitly by calling `restart_child/2`. Use
   `delete_child/2` to remove the child specification.
 
   If successful, the function returns ok. If there is no child specification or
-  pid, the function returns `{ :error, :not_found }`.
+  pid, the function returns `{:error, :not_found}`.
   """
-  @spec terminate_child(supervisor, pid | Supervisor.Spec.child_id) :: :ok | { :error, error }
+  @spec terminate_child(supervisor, pid | Supervisor.Spec.child_id) :: :ok | {:error, error}
         when error: :not_found | :simple_one_for_one
   defdelegate terminate_child(supervisor, pid_or_child_id), to: :supervisor
 
@@ -259,7 +259,7 @@ defmodule Supervisor do
 
   This operation is not supported by `simple_one_for_one` supervisors.
   """
-  @spec delete_child(supervisor, Supervisor.Spec.child_id) :: :ok | { :error, error }
+  @spec delete_child(supervisor, Supervisor.Spec.child_id) :: :ok | {:error, error}
         when error: :not_found | :simple_one_for_one | :running | :restarting
   defdelegate delete_child(supervisor, child_id), to: :supervisor
 
@@ -272,23 +272,23 @@ defmodule Supervisor do
   Note that for temporary children, the child specification is automatically deleted
   when the child terminates, and thus it is not possible to restart such children.
 
-  If the child process start function returns `{ :ok, child }` or
-  `{ :ok, child, info }`, the pid is added to the supervisor and the function returns
+  If the child process start function returns `{:ok, child}` or
+  `{:ok, child, info}`, the pid is added to the supervisor and the function returns
   the same value.
 
   If the child process start function returns `:ignore`, the pid remains set to
-  `:undefined` and the function returns `{ :ok, :undefined }`.
+  `:undefined` and the function returns `{:ok, :undefined}`.
 
   This function may error with an appropriate error tuple if the `child_id` is not
   found, or if the current process is running or being restarted.
 
   If the child process start function returns an error tuple or an erroneous value,
-  or if it fails, the function returns `{ :error, error }`.
+  or if it fails, the function returns `{:error, error}`.
 
   This operation is not supported by `simple_one_for_one` supervisors.
   """
   @spec restart_child(supervisor, Supervisor.Spec.child_id) ::
-        { :ok, child } | { :ok, child, term } | { :error, error }
+        {:ok, child} | {:ok, child, term} | {:error, error}
         when error: :not_found | :simple_one_for_one | :running | :restarting | term
   defdelegate restart_child(supervisor, child_id), to: :supervisor
 
@@ -311,10 +311,10 @@ defmodule Supervisor do
   * the `modules` as defined in the child specification;
   """
   @spec which_children(supervisor) ::
-        [{ Supervisor.Spec.child_id | :undefined,
+        [{Supervisor.Spec.child_id | :undefined,
            child | :restarting,
            Supervisor.Spec.worker,
-           Supervisor.Spec.modules }]
+           Supervisor.Spec.modules}]
   defdelegate which_children(supervisor), to: :supervisor
 
   @doc """
@@ -338,11 +338,11 @@ defmodule Supervisor do
     :supervisor.count_children(supervisor) |> :maps.from_list
   end
 
-  defp do_start(mod, arg, [{ :via, { via, name } }|_]) do
-    :supervisor.start_link({ :via, via, name }, mod, arg)
+  defp do_start(mod, arg, [{:via, {via, name}}|_]) do
+    :supervisor.start_link({:via, via, name}, mod, arg)
   end
 
-  defp do_start(mod, arg, [{ kind, _ } = sup_name|_]) when kind in [:local, :global] do
+  defp do_start(mod, arg, [{kind, _} = sup_name|_]) when kind in [:local, :global] do
     :supervisor.start_link(sup_name, mod, arg)
   end
 

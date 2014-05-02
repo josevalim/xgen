@@ -4,24 +4,24 @@ defmodule Agent.Server do
   use GenServer
 
   def init(fun) do
-    { :ok, fun.() }
+    {:ok, fun.()}
   end
 
-  def handle_call({ :get, fun }, _from, state) do
-    { :reply, fun.(state), state }
+  def handle_call({:get, fun}, _from, state) do
+    {:reply, fun.(state), state}
   end
 
-  def handle_call({ :get_and_update, fun }, _from, state) do
-    { reply, state } = fun.(state)
-    { :reply, reply, state }
+  def handle_call({:get_and_update, fun}, _from, state) do
+    {reply, state} = fun.(state)
+    {:reply, reply, state}
   end
 
-  def handle_call({ :update, fun }, _from, state) do
-    { :reply, :ok, fun.(state) }
+  def handle_call({:update, fun}, _from, state) do
+    {:reply, :ok, fun.(state)}
   end
 
   def handle_call(:stop, _from, state) do
-    { :stop, :normal, :ok, state }
+    {:stop, :normal, :ok, state}
   end
 
   def handle_call(msg, from, state) do
@@ -29,7 +29,7 @@ defmodule Agent.Server do
   end
 
   def handle_cast(fun, state) when is_function(fun, 1) do
-    { :noreply, fun.(state) }
+    {:noreply, fun.(state)}
   end
 
   def handle_cast(msg, state) do

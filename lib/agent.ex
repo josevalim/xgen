@@ -22,7 +22,7 @@ defmodule Agent do
 
         @doc "Checks if the task has already executed"
         def executed?(task, project) do
-          item = { task, project }
+          item = {task, project}
           Agent.get(__MODULE__, fn set ->
             item in set
           end)
@@ -30,7 +30,7 @@ defmodule Agent do
 
         @doc "Marks a task as executed"
         def put_task(task, project) do
-          item = { task, project }
+          item = {task, project}
           Agent.update(__MODULE__, &Set.put(item, &1))
         end
       end
@@ -77,18 +77,18 @@ defmodule Agent do
   """
 
   @typedoc "Return values of `start*` functions"
-  @type on_start :: { :ok, pid } | { :error, { :already_started, pid } | term }
+  @type on_start :: {:ok, pid} | {:error, {:already_started, pid} | term}
 
   @typedoc "Options used by the `start*` functions"
   @type options :: [debug: debug,
                     local: atom,
                     global: term,
-                    via: { module, name :: term },
+                    via: {module, name :: term},
                     timeout: timeout,
                     spawn_opt: Process.spawn_opt]
 
   @typedoc "debug options supported by the `start*` functions"
-  @type debug :: [:trace | :log | :statistics | { :log_to_file, Path.t }]
+  @type debug :: [:trace | :log | :statistics | {:log_to_file, Path.t}]
 
   @typedoc "The agent reference"
   @type agent :: pid | atom
@@ -116,7 +116,7 @@ defmodule Agent do
   The `:local` option is used for name registered as described in the module
   documentation. If the option `:timeout` option is present, the agent is
   allowed to spend the given milliseconds initializing or it will be terminated
-  and the start function will return `{ :error, :timeout }`.
+  and the start function will return `{:error, :timeout}`.
 
   If the option `:debug` is present, the corresponding function in the
   [`:sys` module](http://www.erlang.org/doc/man/sys.html) will be invoked.
@@ -127,12 +127,12 @@ defmodule Agent do
   ## Return values
 
   If the server is successfully created and initialized the function returns
-  `{ :ok, pid }`, where pid is the pid of the server. If there already exists
+  `{:ok, pid}`, where pid is the pid of the server. If there already exists
   an agent with the specified name the function returns
-  `{ :error, { :already_started, pid } }` with the pid of that process.
+  `{:error, {:already_started, pid}}` with the pid of that process.
 
   If the given function callback fails with reason, the function returns
-  `{ :error, reason }`.
+  `{:error, reason}`.
   """
   @spec start_link((() -> term), options) :: on_start
   def start_link(fun, options \\ []) when is_function(fun, 0) do
@@ -160,7 +160,7 @@ defmodule Agent do
   """
   @spec get(agent, (state -> a), timeout) :: a when a: var
   def get(agent, fun, timeout \\ 5000) when is_agent(agent) and is_function(fun, 1) do
-    GenServer.call(agent, { :get, fun }, timeout)
+    GenServer.call(agent, {:get, fun}, timeout)
   end
 
   @doc """
@@ -173,9 +173,9 @@ defmodule Agent do
 
   A timeout can also be specified (it has a default value of 5000).
   """
-  @spec get_and_update(agent, (state -> { a, state }), timeout) :: a when a: var
+  @spec get_and_update(agent, (state -> {a, state}), timeout) :: a when a: var
   def get_and_update(agent, fun, timeout \\ 5000) when is_agent(agent) and is_function(fun, 1) do
-    GenServer.call(agent, { :get_and_update, fun }, timeout)
+    GenServer.call(agent, {:get_and_update, fun}, timeout)
   end
 
   @doc """
@@ -189,7 +189,7 @@ defmodule Agent do
   """
   @spec update(agent, (state -> state)) :: :ok
   def update(agent, fun, timeout \\ 5000) when is_agent(agent) and is_function(fun, 1) do
-    GenServer.call(agent, { :update, fun }, timeout)
+    GenServer.call(agent, {:update, fun}, timeout)
   end
 
   @doc """

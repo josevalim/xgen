@@ -80,7 +80,7 @@ defmodule Supervisor.Spec do
 
   * `:transient` - the child process is restarted only if it
     terminates abnormally, i.e. with another exit reason than
-    `:normal`, `:shutdown` or `{ :shutdown, term }`;
+    `:normal`, `:shutdown` or `{:shutdown, term}`;
 
   ### Shutdown values
 
@@ -119,12 +119,12 @@ defmodule Supervisor.Spec do
   @type child_id :: term
 
   @typedoc "The supervisor specification"
-  @type spec :: { child_id,
-                  start_fun :: { module, atom, [term] },
+  @type spec :: {child_id,
+                  start_fun :: {module, atom, [term]},
                   restart,
                   shutdown,
                   worker,
-                  modules }
+                  modules}
 
   @doc """
   Receives a list of children (workers or supervisors) to
@@ -155,7 +155,7 @@ defmodule Supervisor.Spec do
   """
   @spec supervise([spec], strategy: strategy,
                           max_restarts: non_neg_integer,
-                          max_seconds: non_neg_integer) :: { :ok, tuple }
+                          max_seconds: non_neg_integer) :: {:ok, tuple}
   def supervise(children, options) do
     unless strategy = options[:strategy] do
       raise ArgumentError, message: "expected :strategy option to be given"
@@ -165,7 +165,7 @@ defmodule Supervisor.Spec do
     maxS = Keyword.get(options, :max_seconds, 5)
 
     assert_unique_ids(Enum.map(children, &elem(&1, 0)))
-    { :ok, { { strategy, maxR, maxS }, children } }
+    {:ok, {{strategy, maxR, maxS}, children}}
   end
 
   defp assert_unique_ids([id|rest]) do
@@ -238,8 +238,8 @@ defmodule Supervisor.Spec do
     restart  = Keyword.get(options, :restart, :permanent)
     shutdown = Keyword.get(options, :shutdown, 5000)
 
-    { id, { module, function, args },
-      restart, shutdown, type, modules }
+    {id, {module, function, args},
+      restart, shutdown, type, modules}
   end
 
   defp modules(GenEvent), do: :dynamic

@@ -2,8 +2,8 @@ defmodule Task.SupervisorTest do
   use ExUnit.Case, async: true
 
   setup do
-    { :ok, pid } = Task.Supervisor.start_link()
-    { :ok, supervisor: pid }
+    {:ok, pid} = Task.Supervisor.start_link()
+    {:ok, supervisor: pid}
   end
 
   teardown config do
@@ -30,7 +30,7 @@ defmodule Task.SupervisorTest do
     assert is_reference task.ref
 
     # Assert the link
-    { :links, links } = Process.info(self, :links)
+    {:links, links} = Process.info(self, :links)
     assert task.pid in links
 
     # Run the task
@@ -38,8 +38,8 @@ defmodule Task.SupervisorTest do
 
     # Assert response and monitoring messages
     ref = task.ref
-    assert_receive { ^ref, :done }
-    assert_receive { :DOWN, ^ref, _, _, :normal }
+    assert_receive {^ref, :done}
+    assert_receive {:DOWN, ^ref, _, _, :normal}
   end
 
   test "async/3", config do
@@ -53,10 +53,10 @@ defmodule Task.SupervisorTest do
 
   test "start_child/1", config do
     parent = self()
-    { :ok, pid } = Task.Supervisor.start_child(config[:supervisor], fn -> wait_and_send(parent, :done) end)
+    {:ok, pid} = Task.Supervisor.start_child(config[:supervisor], fn -> wait_and_send(parent, :done) end)
     assert Task.Supervisor.children(config[:supervisor]) == [pid]
 
-    { :links, links } = Process.info(self, :links)
+    {:links, links} = Process.info(self, :links)
     refute pid in links
 
     send pid, true
@@ -64,10 +64,10 @@ defmodule Task.SupervisorTest do
   end
 
   test "start_child/3", config do
-    { :ok, pid } = Task.Supervisor.start_child(config[:supervisor], __MODULE__, :wait_and_send, [self(), :done])
+    {:ok, pid} = Task.Supervisor.start_child(config[:supervisor], __MODULE__, :wait_and_send, [self(), :done])
     assert Task.Supervisor.children(config[:supervisor]) == [pid]
 
-    { :links, links } = Process.info(self, :links)
+    {:links, links} = Process.info(self, :links)
     refute pid in links
 
     send pid, true
@@ -75,7 +75,7 @@ defmodule Task.SupervisorTest do
   end
 
   test "terminate_child/2", config do
-    { :ok, pid } = Task.Supervisor.start_child(config[:supervisor], __MODULE__, :wait_and_send, [self(), :done])
+    {:ok, pid} = Task.Supervisor.start_child(config[:supervisor], __MODULE__, :wait_and_send, [self(), :done])
     assert Task.Supervisor.children(config[:supervisor]) == [pid]
     assert Task.Supervisor.terminate_child(config[:supervisor], pid) == :ok
     assert Task.Supervisor.children(config[:supervisor]) == []
@@ -84,19 +84,19 @@ defmodule Task.SupervisorTest do
 
   test "await/1 exits on task throw", config do
     task = Task.Supervisor.async(config[:supervisor], fn -> throw :unknown end)
-    assert { { { :nocatch, :unknown }, _ }, { Task, :await, [^task, 5000] } } =
+    assert {{{:nocatch, :unknown}, _}, {Task, :await, [^task, 5000]}} =
            catch_exit(Task.await(task))
   end
 
   test "await/1 exits on task error", config do
     task = Task.Supervisor.async(config[:supervisor], fn -> raise "oops" end)
-    assert { { RuntimeError[], _ }, { Task, :await, [^task, 5000] } } =
+    assert {{RuntimeError[], _}, {Task, :await, [^task, 5000]}} =
            catch_exit(Task.await(task))
   end
 
   test "await/1 exits on task exit", config do
     task = Task.Supervisor.async(config[:supervisor], fn -> exit :unknown end)
-    assert { :unknown, { Task, :await, [^task, 5000] } } =
+    assert {:unknown, {Task, :await, [^task, 5000]}} =
            catch_exit(Task.await(task))
   end
 end

@@ -9,7 +9,7 @@ defmodule SupervisorTest do
     end
 
     def handle_call(:pop, _from, [h|t]) do
-      { :reply, h, t }
+      {:reply, h, t}
     end
 
     def handle_call(:stop, _from, stack) do
@@ -20,11 +20,11 @@ defmodule SupervisorTest do
       catch
         _, _ -> :ok
       end
-      { :stop, :normal, :ok, stack }
+      {:stop, :normal, :ok, stack}
     end
 
-    def handle_cast({ :push, h }, _from, t) do
-      { :noreply, [h|t] }
+    def handle_cast({:push, h}, _from, t) do
+      {:noreply, [h|t]}
     end
   end
 
@@ -41,7 +41,7 @@ defmodule SupervisorTest do
 
   test "start_link/2" do
     children = [worker(Stack, [[:hello]])]
-    { :ok, pid } = Supervisor.start_link(children, strategy: :one_for_one)
+    {:ok, pid} = Supervisor.start_link(children, strategy: :one_for_one)
 
     wait_until_registered(:sup_stack)
     assert GenServer.call(:sup_stack, :pop) == :hello
@@ -54,7 +54,7 @@ defmodule SupervisorTest do
   end
 
   test "start_link/3" do
-    { :ok, pid } = Supervisor.start_link(Stack.Sup, [:hello], local: :stack_sup)
+    {:ok, pid} = Supervisor.start_link(Stack.Sup, [:hello], local: :stack_sup)
     wait_until_registered(:stack_sup)
 
     assert GenServer.call(:sup_stack, :pop) == :hello
@@ -62,13 +62,13 @@ defmodule SupervisorTest do
   end
 
   test "*_child functions" do
-    { :ok, pid } = Supervisor.start_link([], strategy: :one_for_one)
+    {:ok, pid} = Supervisor.start_link([], strategy: :one_for_one)
 
     assert Supervisor.which_children(pid) == []
     assert Supervisor.count_children(pid) ==
            %{specs: 0, active: 0, supervisors: 0, workers: 0}
 
-    { :ok, stack } = Supervisor.start_child(pid, worker(Stack, [[:hello]]))
+    {:ok, stack} = Supervisor.start_child(pid, worker(Stack, [[:hello]]))
     assert GenServer.call(stack, :pop) == :hello
 
     assert Supervisor.which_children(pid) ==
@@ -76,10 +76,10 @@ defmodule SupervisorTest do
     assert Supervisor.count_children(pid) ==
            %{specs: 1, active: 1, supervisors: 0, workers: 1}
 
-    assert Supervisor.delete_child(pid, Stack) == { :error, :running }
+    assert Supervisor.delete_child(pid, Stack) == {:error, :running}
     assert Supervisor.terminate_child(pid, Stack) == :ok
 
-    { :ok, stack } = Supervisor.restart_child(pid, Stack)
+    {:ok, stack} = Supervisor.restart_child(pid, Stack)
     assert GenServer.call(stack, :pop) == :hello
 
     assert Supervisor.terminate_child(pid, Stack) == :ok

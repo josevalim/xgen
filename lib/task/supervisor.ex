@@ -13,9 +13,9 @@ defmodule Task.Supervisor do
 
   * a `pid`
   * an `atom` if the supervisor is locally registered
-  * `{ atom, node }` if the supervisor is locally registered at another node
-  * `{ :global, term }` if the supervisor is globally registered
-  * `{ :via, module, name }` if the supervisor is registered through an alternative registry
+  * `{atom, node}` if the supervisor is locally registered at another node
+  * `{:global, term}` if the supervisor is globally registered
+  * `{:via, module, name}` if the supervisor is registered through an alternative registry
 
   Tasks can be spawned and awaited as defined in the `Task` module.
   """
@@ -42,7 +42,7 @@ defmodule Task.Supervisor do
   @spec start_link(Supervisor.options) :: Supervisor.on_start
   def start_link(opts \\ []) do
     import Supervisor.Spec
-    { shutdown, opts } = Keyword.pop(opts, :shutdown, 5000)
+    {shutdown, opts} = Keyword.pop(opts, :shutdown, 5000)
     children = [worker(Task.Supervised, [], restart: :temporary, shutdown: shutdown)]
     Supervisor.start_link(children, [strategy: :simple_one_for_one] ++ opts)
   end
@@ -66,9 +66,9 @@ defmodule Task.Supervisor do
   """
   @spec async(Supervisor.supervisor, module, atom, [term]) :: Task.t
   def async(supervisor, module, fun, args) do
-    { :ok, pid } = Supervisor.start_child(supervisor, [self(), { module, fun, args }])
+    {:ok, pid} = Supervisor.start_child(supervisor, [self(), {module, fun, args}])
     ref = Process.monitor(pid)
-    send pid, { self(), ref }
+    send pid, {self(), ref}
     %Task{pid: pid, ref: ref}
   end
 
@@ -96,7 +96,7 @@ defmodule Task.Supervisor do
   task needs to emit side-effects (like I/O) and does not need
   to report back to the caller.
   """
-  @spec start_child(Supervisor.supervisor, fun) :: { :ok, pid }
+  @spec start_child(Supervisor.supervisor, fun) :: {:ok, pid}
   def start_child(supervisor, fun) do
     start_child(supervisor, :erlang, :apply, [fun, []])
   end
@@ -107,8 +107,8 @@ defmodule Task.Supervisor do
   Similar to `start_child/2` except the task is specified
   by the given `module`, `fun` and `args`.
   """
-  @spec start_child(Supervisor.supervisor, module, atom, [term]) :: { :ok, pid }
+  @spec start_child(Supervisor.supervisor, module, atom, [term]) :: {:ok, pid}
   def start_child(supervisor, module, fun, args) do
-    Supervisor.start_child(supervisor, [:undefined, { module, fun, args }])
+    Supervisor.start_child(supervisor, [:undefined, {module, fun, args}])
   end
 end

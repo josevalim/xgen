@@ -38,7 +38,7 @@ defmodule Application do
   can access the default value:
 
       Application.get_env(:APP_NAME, :hello)
-      #=> { :ok, :hello }
+      #=> {:ok, :hello}
 
   It is also possible to put and delete values from the application value,
   including new values that are not defined in the environment file (although
@@ -60,7 +60,7 @@ defmodule Application do
   module callback in the application definition in the `mix.exs` file:
 
       def application do
-        [mod: { MyApp, [] }]
+        [mod: {MyApp, []}]
       end
 
   Our application now requires the `MyApp` module to provide an application
@@ -81,7 +81,7 @@ defmodule Application do
         end
       end
 
-  `start/2` most commonly returns `{ :ok, pid }` or `{ :ok, pid, state }` where
+  `start/2` most commonly returns `{:ok, pid}` or `{:ok, pid, state}` where
   `pid` identifies the supervision tree and the state is the application state.
   `args` is second element of the tuple given to the `:mod` option.
 
@@ -126,7 +126,7 @@ defmodule Application do
   @spec get_env(app, key, value) :: value
   def get_env(app, key, default \\ nil) do
     case :application.get_env(app, key) do
-      { :ok, value } -> value
+      {:ok, value} -> value
       :undefined -> default
     end
   end
@@ -137,10 +137,10 @@ defmodule Application do
   If the specified application is not loaded, or the configuration parameter
   does not exist, the function returns `:error`.
   """
-  @spec fetch_env(app, key) :: { :ok, value } | :error
+  @spec fetch_env(app, key) :: {:ok, value} | :error
   def fetch_env(app, key) do
     case :application.get_env(app, key) do
-      { :ok, value } -> { :ok, value }
+      {:ok, value} -> {:ok, value}
       :undefined -> :error
     end
   end
@@ -188,7 +188,7 @@ defmodule Application do
       :ok = Application.ensure_started(:my_test_dep)
 
   """
-  @spec ensure_started(app, start_type) :: :ok | { :error, term }
+  @spec ensure_started(app, start_type) :: :ok | {:error, term}
   def ensure_started(app, type \\ :temporary) when is_atom(app) do
     :application.ensure_started(app, type)
   end
@@ -200,7 +200,7 @@ defmodule Application do
   `:applications` in the `.app` file in case they were not previously
   started.
   """
-  @spec ensure_all_started(app, start_type) :: { :ok, [app] } | { :error, term }
+  @spec ensure_all_started(app, start_type) :: {:ok, [app]} | {:error, term}
   def ensure_all_started(app, type \\ :temporary) when is_atom(app) do
     :application.ensure_all_started(app, type)
   end
@@ -213,7 +213,7 @@ defmodule Application do
   `.app` file will also be loaded, but they won't be started.
 
   Furthermore, all applications listed in the `:applications` key must be explicitly
-  started before this application is. If not, `{ :error, { :not_started, app } }` is
+  started before this application is. If not, `{:error, {:not_started, app}}` is
   returned, where `app` is the name of the missing application.
 
   In case you want to automatically  load **and start** all of `app`'s dependencies,
@@ -236,7 +236,7 @@ defmodule Application do
   Note also that the `:transient` type is of little practical use, since when a
   supervision tree terminates, the reason is set to `:shutdown`, not `:normal`.
   """
-  @spec start(app, start_type) :: :ok | { :error, term }
+  @spec start(app, start_type) :: :ok | {:error, term}
   def start(app, type \\ :temporary) when is_atom(app) do
     :application.start(app, type)
   end
@@ -246,7 +246,7 @@ defmodule Application do
 
   When stopped, the application is still loaded.  
   """
-  @spec stop(app) :: :ok | { :error, term }
+  @spec stop(app) :: :ok | {:error, term}
   def stop(app) do
     :application.stop(app)
   end
@@ -260,7 +260,7 @@ defmodule Application do
   Loading the application does not start it nor load its modules, but
   it does load its environment.
   """
-  @spec load(app) :: :ok | { :error, term }
+  @spec load(app) :: :ok | {:error, term}
   def load(app) when is_atom(app) do
     :application.load(app)
   end
@@ -271,7 +271,7 @@ defmodule Application do
   It will also unload all `:included_applications`.
   Note that the function does not purge the application modules.
   """
-  @spec unload(app) :: :ok | { :error, term }
+  @spec unload(app) :: :ok | {:error, term}
   def unload(app) when is_atom(app) do
     :application.unload(app)
   end
@@ -303,8 +303,8 @@ defmodule Application do
   @spec app_dir(app) :: String.t
   def app_dir(app) when is_atom(app) do
     case :code.lib_dir(app) do
-      lib when is_list(lib) -> String.from_char_list!(lib)
-      { :error, :bad_name } -> raise ArgumentError, message: "unknown application: #{inspect app}"
+      lib when is_list(lib) -> String.from_char_data!(lib)
+      {:error, :bad_name} -> raise ArgumentError, message: "unknown application: #{inspect app}"
     end
   end
 

@@ -17,7 +17,7 @@ This README provides installation instructions and the overall description of th
 This project requires Elixir v0.13.0 or later. To install, just add it to your `deps`:
 
     def deps do
-      [{ :xgen, github: "josevalim/xgen" }]
+      [{:xgen, github: "josevalim/xgen"}]
     end
 
 And list it as a runtime dependency for your application:
@@ -38,7 +38,7 @@ This tool provides a `GenServer` module which is quite similar to the stock gen 
 
    Treating local and global as options feels more natural than the Erlang syntax:
 
-        :gen_server.start_link({ :local, MyServer }, MyServer, [], [])
+        :gen_server.start_link({:local, MyServer}, MyServer, [], [])
 
 * A developer can `use GenServer` to get a default implementation for all GenServer callbacks;
 
@@ -48,7 +48,7 @@ In fact, the differences above apply to all other modules below, and as such we 
 
 The main difference that comes with Elixir's GenEvent is that events are streamable:
 
-    { :ok, pid } = GenEvent.start_link()
+    {:ok, pid} = GenEvent.start_link()
     stream = GenEvent.stream(pid)
 
     # Spawn a new process to print the events
@@ -109,7 +109,7 @@ Tasks also ship with a `Task.Supervisor` module, which can be used to supervise 
     Task.Supervisor.start_link(local: :tasks_supervisor)
 
     # On the client
-    Task.Supervisor.async({ :tasks_supervisor, :remote@local }, fn -> do_work() end)
+    Task.Supervisor.async({:tasks_supervisor, :remote@local}, fn -> do_work() end)
 
 This is similar to the `:rpc` funcitonality except you have explicitly control of the supervisor (instead of an internal `:rex` one) also allowing tasks to be supervised dynamically.
 
@@ -128,7 +128,7 @@ The Agent module provides a basic server implementation that allows state to be 
 
       @doc "Checks if the task has already executed"
       def executed?(task, project) do
-        item = { task, project }
+        item = {task, project}
         Agent.get(__MODULE__, fn set ->
           item in set
         end)
@@ -136,7 +136,7 @@ The Agent module provides a basic server implementation that allows state to be 
 
       @doc "Marks a task as executed"
       def put_task(task, project) do
-        item = { task, project }
+        item = {task, project}
         Agent.update(__MODULE__, &Set.put(item, &1))
       end
     end
