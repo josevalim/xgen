@@ -66,30 +66,30 @@ defmodule Task do
 
   ## Supervision trees
 
-  The `Task.Sup` module allows developers to start supervisors
+  The `Task.Supervisor` module allows developers to start supervisors
   that dynamically supervise tasks:
 
-      {:ok, pid} = Task.Sup.start_link()
-      Task.Sup.async(pid, fn -> do_work() end)
+      {:ok, pid} = Task.Supervisor.start_link()
+      Task.Supervisor.async(pid, fn -> do_work() end)
 
-  `Task.Sup` also makes it possible to spawn tasks in remote nodes as
+  `Task.Supervisor` also makes it possible to spawn tasks in remote nodes as
   long as the supervisor is registered locally or globally:
 
       # In the remote node
-      Task.Sup.start_link(local: :tasks_sup)
+      Task.Supervisor.start_link(name: :tasks_sup)
 
       # On the client
-      Task.Sup.async({:tasks_sup, :remote@local}, fn -> do_work() end)
+      Task.Supervisor.async({:tasks_sup, :remote@local}, fn -> do_work() end)
 
-  `Task.Sup` is more often started in your supervision tree as:
+  `Task.Supervisor` is more often started in your supervision tree as:
 
       import Supervisor.Spec
 
       children = [
-        supervisor(Task.Sup, [[local: :tasks_sup]])
+        supervisor(Task.Supervisor, [[name: :tasks_sup]])
       ]
 
-  Check `Task.Sup` for other operations supported by the Task supervisor.
+  Check `Task.Supervisor` for other operations supported by the Task supervisor.
   """
 
   @doc """

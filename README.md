@@ -32,9 +32,9 @@ Run `mix deps.get` and you are good to go.
 
 This tool provides a `GenServer` module which is quite similar to the stock gen server provided by Erlang/OTP with two differences:
 
-* Both `start/3` and `start_link/3` expect the module name, the server arguments and a set of options. In order to register the server locally (or globally), an option needs to be given:
+* Both `start/3` and `start_link/3` expect the module name, the server arguments and a set of options. In order to register the server locally (or globally), a single name option can be used:
 
-        GenServer.start_link(MyServer, [], local: MyServer)
+        GenServer.start_link(MyServer, [], name: MyServer)
 
    Treating local and global as options feels more natural than the Erlang syntax:
 

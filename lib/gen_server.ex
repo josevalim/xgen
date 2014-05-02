@@ -108,31 +108,31 @@ defmodule GenServer do
 
   ## Names registering
 
-  Both `start_link/3` and `start/3` support the `GenServer` to be registered
-  on start. Registered names are also automatically clean up on termination.
-  The supported options are:
+  Both `start_link/3` and `start/3` support the `GenServer` to register
+  a name on start via the `:name` option. Registered names are also
+  automatically clean up on termination. The supported values are:
 
-  * `:local` - the GenServer is registered locally with the given name (an atom)
+  * an atom - the GenServer is registered locally with the given name
     using `Process.register/2`;
 
-  * `:global`- the GenServer is registered globally with the given term using
-    the functions in the `:global` module;
+  * `{:global, term}`- the GenServer is registered globally with the given
+    term using the functions in the `:global` module;
 
-  * `:via` - the GenServer is registered with the given mechanism and name. The
-    `:via` option expects a module name to control the registration mechanism
-    and the name in a tuple as option;
+  * `{:via, module, term}` - the GenServer is registered with the given
+    mechanism and name. The `:via` option expects a module name to control
+    the registration mechanism along side a name which can be any term;
 
   For example, we could start and register our Stack server locally as follows:
 
       # Start the server and register it locally with name MyStack
-      {:ok, _} = GenServer.start_link(Stack, [:hello], local: MyStack)
+      {:ok, _} = GenServer.start_link(Stack, [:hello], name: MyStack)
 
       # Now messages can be sent directly to MyStack
       GenServer.call(MyStack, :pop) #=> :hello
 
   Once the server is started, the remaining functions in this module (`call/2`,
-  `cast/2` and friends) expect a server reference in one of the following
-  formats:
+  `cast/2` and friends) will also accept an atom, or any `:global` or `:via`
+  tuples. In general, the following formats are supported:
 
   * a `pid`
   * an `atom` if the server is locally registered
@@ -205,11 +205,12 @@ defmodule GenServer do
   @typedoc "Return values of `start*` functions"
   @type on_start :: {:ok, pid} | :ignore | {:error, {:already_started, pid} | term}
 
+  @typedoc "The GenServer name"
+  @type name :: atom | {:global, term} | {:via, module, term}
+
   @typedoc "Options used by the `start*` functions"
   @type options :: [debug: debug,
-                    local: atom,
-                    global: term,
-                    via: {module, name :: term},
+                    name: name,
                     timeout: timeout,
                     spawn_opt: Process.spawn_opt]
 
@@ -217,7 +218,7 @@ defmodule GenServer do
   @type debug :: [:trace | :log | :statistics | {:log_to_file, Path.t}]
 
   @typedoc "The server reference"
-  @type server :: pid | atom | {atom, node} | {:global, term} | {:via, module, term}
+  @type server :: pid | name | {atom, node}
 
   @doc false
   defmacro __using__(_) do
@@ -270,10 +271,10 @@ defmodule GenServer do
 
   ## Options
 
-  The `:local`, `:global` and `:via` options are used for name registered as
-  described in the module documentation. If the option `:timeout` option is
-  present, the server is allowed to spend the given milliseconds initializing or
-  it will be terminated and the start function will return `{:error, :timeout}`.
+  The `:name` option is used for name registered as described in the module
+  documentation. If the option `:timeout` option is present, the server is
+  allowed to spend the given milliseconds initializing or it will be
+  terminated and the start function will return `{:error, :timeout}`.
 
   If the option `:debug` is present, the corresponding function in the
   [`:sys` module](http://www.erlang.org/doc/man/sys.html) will be invoked.
@@ -295,7 +296,7 @@ defmodule GenServer do
   """
   @spec start_link(module, any, options) :: on_start
   def start_link(module, args, options \\ []) do
-    start(:link, module, args, options)
+    do_start(:link, module, args, options)
   end
 
   @doc """
@@ -305,13 +306,17 @@ defmodule GenServer do
   """
   @spec start(module, any, options) :: on_start
   def start(module, args, options \\ []) do
-    start(:nolink, module, args, options)
+    do_start(:nolink, module, args, options)
   end
 
-  defp start(link, module, args, options) do
-    case extract_name(options, []) do
-      {name, opts} -> :gen.start(:gen_server, link, name, module, args, opts)
-      opts           -> :gen.start(:gen_server, link, module, args, opts)
+  defp do_start(link, module, args, options) do
+    case Keyword.pop(options, :name) do
+      {nil, opts} ->
+        :gen.start(:gen_server, link, module, args, opts)
+      {atom, opts} when is_atom(atom) ->
+        :gen.start(:gen_server, link, {:local, atom}, module, args, opts)
+      {other, opts} when is_tuple(other) ->
+        :gen.start(:gen_server, link, other, module, args, opts)
     end
   end
 
@@ -410,18 +415,6 @@ defmodule GenServer do
       _, _ -> :ok
     end
   end
-
-  defp extract_name([{:via, {via, name}}|t], acc),
-    do: {{:via, via, name}, acc ++ t}
-
-  defp extract_name([{key, _} = pair|t], acc) when key in [:local, :global],
-    do: {pair, acc ++ t}
-
-  defp extract_name([h|t], opts),
-    do: extract_name(t, [h|opts])
-
-  defp extract_name([], opts),
-    do: opts
 
   @compile {:inline, [nodes: 0]}
 

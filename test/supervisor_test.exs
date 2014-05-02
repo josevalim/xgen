@@ -5,7 +5,7 @@ defmodule SupervisorTest do
     use GenServer
 
     def start_link(state) do
-      GenServer.start_link(__MODULE__, state, [local: :sup_stack])
+      GenServer.start_link(__MODULE__, state, [name: :sup_stack])
     end
 
     def handle_call(:pop, _from, [h|t]) do
@@ -54,7 +54,7 @@ defmodule SupervisorTest do
   end
 
   test "start_link/3" do
-    {:ok, pid} = Supervisor.start_link(Stack.Sup, [:hello], local: :stack_sup)
+    {:ok, pid} = Supervisor.start_link(Stack.Sup, [:hello], name: :stack_sup)
     wait_until_registered(:stack_sup)
 
     assert GenServer.call(:sup_stack, :pop) == :hello

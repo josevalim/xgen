@@ -85,7 +85,7 @@ defmodule GenEventTest do
   end
 
   test "start/2 with registered name" do
-    {:ok, _} = GenEvent.start(local: :logger)
+    {:ok, _} = GenEvent.start(name: :logger)
     assert GenEvent.stop(:logger) == :ok
   end
 
@@ -276,7 +276,7 @@ defmodule GenEventTest do
 
   test "stream/2 with manager unregistered" do
     # Start a manager and subscribers
-    {:ok, pid} = GenEvent.start_link(local: :unreg)
+    {:ok, pid} = GenEvent.start_link(name: :unreg)
     stream = GenEvent.stream(:unreg)
 
     parent = self()

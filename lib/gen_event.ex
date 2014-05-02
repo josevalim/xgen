@@ -150,13 +150,14 @@ defmodule GenEvent do
   @typedoc "Return values of `start*` functions"
   @type on_start :: {:ok, pid} | {:error, {:already_started, pid}}
 
+  @typedoc "The GenEvent manager name"
+  @type name :: atom | {:global, term} | {:via, module, term}
+
   @typedoc "Options used by the `start*` functions"
-  @type options :: [local: atom,
-                    global: term,
-                    via: {module, name :: term}]
+  @type options :: [name: name]
 
   @typedoc "The event manager reference"
-  @type manager :: pid | atom | {atom, node} | {:global, term} | {:via, module, term}
+  @type manager :: pid | name | {atom, node}
 
   @typedoc "Supported values for new handlers"
   @type handler :: module | {module, term}
@@ -219,7 +220,7 @@ defmodule GenEvent do
 
   This is often used to start the `GenServer` as part of a supervision tree.
 
-  It accepts a set of options, that are described under the `Name Registering`
+  It accepts a the `:name` which is described under the `Name Registering`
   section in the `GenServer` module docs.
 
   If the event manager is successfully created and initialized the function
@@ -240,6 +241,17 @@ defmodule GenEvent do
   @spec start(options) :: on_start
   def start(options \\ []) do
     do_start(:nolink, options)
+  end
+
+  defp do_start(mode, options) do
+    case Keyword.get(options, :name) do
+      nil ->
+        :gen.start(:gen_event, mode, :"no callback module", [], [])
+      atom when is_atom(atom) ->
+        :gen.start(:gen_event, mode, {:local, atom}, :"no callback module", [], [])
+      other when is_tuple(other) ->
+        :gen.start(:gen_event, mode, other, :"no callback module", [], [])
+    end
   end
 
   @doc """
@@ -423,22 +435,6 @@ defmodule GenEvent do
   """
   @spec stop(manager) :: :ok
   defdelegate stop(manager), to: :gen_event
-
-  defp do_start(mode, [{:via, {via, name}}|_]) do
-    :gen.start(:gen_event, mode, {:via, via, name}, :"no callback module", [], [])
-  end
-
-  defp do_start(mode, [{kind, name}|_]) when kind in [:local, :global] do
-    :gen.start(:gen_event, mode, {kind, name}, :"no callback module", [], [])
-  end
-
-  defp do_start(mode, [_|t]) do
-    do_start(mode, t)
-  end
-
-  defp do_start(mode, []) do
-    :gen.start(:gen_event, mode, :"no callback module", [], [])
-  end
 end
 
 defimpl Enumerable, for: GenEvent do

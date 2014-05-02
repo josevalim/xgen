@@ -46,7 +46,7 @@ defmodule GenServerTest do
   end
 
   test "abcast/3" do
-    {:ok, _} = GenServer.start_link(Stack, [], local: :stack)
+    {:ok, _} = GenServer.start_link(Stack, [], name: :stack)
 
     assert GenServer.abcast(:stack, {:push, :hello}) == :abcast
     assert GenServer.call({:stack, node()}, :pop) == :hello
@@ -58,7 +58,7 @@ defmodule GenServerTest do
   end
 
   test "multi_call/4" do
-    {:ok, _} = GenServer.start_link(Stack, [:hello, :world], local: :stack)
+    {:ok, _} = GenServer.start_link(Stack, [:hello, :world], name: :stack)
 
     assert GenServer.multi_call(:stack, :pop) ==
            {[{node(), :hello}], []}

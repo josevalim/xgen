@@ -4,20 +4,16 @@ defmodule Task.Supervisor do
 
   This module defines a supervisor which can be used to dynamically
   supervise tasks. Behind the scenes, this module is implemented as a
-  `simple_one_for_one` supervisor where the workers are temporary
+  `:simple_one_for_one` supervisor where the workers are temporary
   (i.e. they are not restarted after they die).
 
-  Once the supervisor is started with `start_link/1`, the remaining
-  functions in this module expect a supervisor reference in one of
-  the following formats:
+  The functions in this module allow tasks can be spawned and awaited
+  from a supervisor, similar to the functions defined in the `Task` module.
 
-  * a `pid`
-  * an `atom` if the supervisor is locally registered
-  * `{atom, node}` if the supervisor is locally registered at another node
-  * `{:global, term}` if the supervisor is globally registered
-  * `{:via, module, name}` if the supervisor is registered through an alternative registry
+  ## Name registering
 
-  Tasks can be spawned and awaited as defined in the `Task` module.
+  A `Task.Supervisor` is bound to the same name registering rules as a
+  `GenServer`. Read more about it in the `GenServer` docs.
   """
 
   @doc """
@@ -25,19 +21,12 @@ defmodule Task.Supervisor do
 
   The supported options are:
 
-  * `:local` - the supervisor is registered locally with the given name (an atom)
-    using `Process.register/2`;
-
-  * `:global`- the supervisor is registered globally with the given term using
-    the functions in the `:global` module;
-
-  * `:via` - the supervisor is registered with the given mechanism and name. The
-    `:via` option expects a module name to control the registration mechanism
-    and the name in a tuple as option;
+  * `:name` - used to register a supervisor name, the supported values are
+    described under the `Name Registering` section in the `GenServer` module
+    docs;
 
   * `:shutdown` - `:brutal_kill` if the tasks must be killed directly on shutdown
     or an integer indicating the timeout value, defaults to 5000 miliseconds;
-
   """
   @spec start_link(Supervisor.options) :: Supervisor.on_start
   def start_link(opts \\ []) do

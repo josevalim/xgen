@@ -21,7 +21,7 @@ defmodule Supervisor do
         use GenServer
 
         def start_link(state) do
-          GenServer.start_link(__MODULE__, state, [local: :sup_stack])
+          GenServer.start_link(__MODULE__, state, [name: :sup_stack])
         end
 
         def handle_call(:pop, _from, [h|t]) do
@@ -127,16 +127,17 @@ defmodule Supervisor do
 
   @type child :: pid | :undefined
 
+  @typedoc "The Supervisor name"
+  @type name :: atom | {:global, term} | {:via, module, term}
+
   @typedoc "Options used by the `start*` functions"
-  @type options :: [local: atom,
-                    global: term,
-                    via: {module, name :: term},
+  @type options :: [name: name,
                     strategy: Supervisor.Spec.strategy,
                     max_restarts: non_neg_integer,
                     max_seconds: non_neg_integer]
 
   @typedoc "The supervisor reference"
-  @type supervisor :: pid | atom | {atom, node} | {:global, term} | {:via, module, term}
+  @type supervisor :: pid | name | {atom, node}
 
   @doc """
   Starts a supervisor with the given children.
@@ -182,7 +183,7 @@ defmodule Supervisor do
   `{:error, term} where term is a term with information about the
   error, and the supervisor terminates with reason `term`.
 
-  A set of options can also be given in order to register a supervisor
+  The `:name` option can also be given in order to register a supervisor
   name, the supported values are described under the `Name Registering`
   section in the `GenServer` module docs.
 
@@ -190,7 +191,14 @@ defmodule Supervisor do
   """
   @spec start_link(module, term, options) :: on_start
   def start_link(module, arg, options \\ []) do
-    do_start(module, arg, options)
+    case Keyword.get(options, :name) do
+      nil ->
+        :supervisor.start_link(module, arg)
+      atom when is_atom(atom) ->
+        :supervisor.start_link({:local, atom}, module, arg)
+      other when is_tuple(other) ->
+        :supervisor.start_link(other, module, arg)
+    end
   end
 
   @doc """
@@ -336,21 +344,5 @@ defmodule Supervisor do
          supervisors: non_neg_integer, workers: non_neg_integer]
   def count_children(supervisor) do
     :supervisor.count_children(supervisor) |> :maps.from_list
-  end
-
-  defp do_start(mod, arg, [{:via, {via, name}}|_]) do
-    :supervisor.start_link({:via, via, name}, mod, arg)
-  end
-
-  defp do_start(mod, arg, [{kind, _} = sup_name|_]) when kind in [:local, :global] do
-    :supervisor.start_link(sup_name, mod, arg)
-  end
-
-  defp do_start(mod, arg, [_|t]) do
-    do_start(mod, arg, t)
-  end
-
-  defp do_start(mod, arg, []) do
-    :supervisor.start_link(mod, arg)
   end
 end

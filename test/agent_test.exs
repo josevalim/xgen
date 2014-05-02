@@ -16,7 +16,7 @@ defmodule AgentTest do
   end
 
   test "start/2 workflow with registered name" do
-    {:ok, pid} = Agent.start(fn -> %{} end, local: :agent)
+    {:ok, pid} = Agent.start(fn -> %{} end, name: :agent)
     assert Process.info(pid, :registered_name) == {:registered_name, :agent}
     assert Agent.cast(:agent, &Map.put(&1, :hello, :world)) == :ok
     assert Agent.get(:agent, &Map.get(&1, :hello)) == :world

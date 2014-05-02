@@ -29,9 +29,9 @@ defmodule Supervisor.SpecTest do
   end
 
   test "worker/3 with GenEvent" do
-    assert worker(GenEvent, [[local: :hello]]) == {
+    assert worker(GenEvent, [[name: :hello]]) == {
       GenEvent,
-      {GenEvent, :start_link, [[local: :hello]]},
+      {GenEvent, :start_link, [[name: :hello]]},
       :permanent,
       5000,
       :worker,
