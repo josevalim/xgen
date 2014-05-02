@@ -1,4 +1,4 @@
-defmodule Task.Sup do
+defmodule Task.Supervisor do
   @moduledoc """
   A tasks supervisor.
 
@@ -25,13 +25,13 @@ defmodule Task.Sup do
 
   The supported options are:
 
-  * `:local` - the supervivsor is registered locally with the given name (an atom)
+  * `:local` - the supervisor is registered locally with the given name (an atom)
     using `Process.register/2`;
 
-  * `:global`- the supervivsor is registered globally with the given term using
+  * `:global`- the supervisor is registered globally with the given term using
     the functions in the `:global` module;
 
-  * `:via` - the supervivsor is registered with the given mechanism and name. The
+  * `:via` - the supervisor is registered with the given mechanism and name. The
     `:via` option expects a module name to control the registration mechanism
     and the name in a tuple as option;
 
@@ -50,7 +50,7 @@ defmodule Task.Sup do
   @doc """
   Starts a task that can be awaited on.
 
-  The `supervisor` must be a reference as defined in `Task.Sup`.
+  The `supervisor` must be a reference as defined in `Task.Supervisor`.
   For more information on tasks, check the `Task` module.
   """
   @spec async(Supervisor.supervisor, fun) :: Task.t
@@ -61,7 +61,7 @@ defmodule Task.Sup do
   @doc """
   Starts a task that can be awaited on.
 
-  The `supervisor` must be a reference as defined in `Task.Sup`.
+  The `supervisor` must be a reference as defined in `Task.Supervisor`.
   For more information on tasks, check the `Task` module.
   """
   @spec async(Supervisor.supervisor, module, atom, [term]) :: Task.t

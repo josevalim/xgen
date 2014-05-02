@@ -103,13 +103,13 @@ xgen adds a Task module which is useful for spawning processes that compute a va
 
 Although tasks map directy to the underlying OTP semantics (using processes), by providing a common pattern, we allow other parts of the standard library to rely on them.
 
-Tasks also ship with a `Task.Sup` module, which can be used to supervise tasks and even allow tasks to be spawned on remote nodes:
+Tasks also ship with a `Task.Supervisor` module, which can be used to supervise tasks and even allow tasks to be spawned on remote nodes:
 
     # In the remote node
-    Task.Sup.start_link(local: :tasks_sup)
+    Task.Supervisor.start_link(local: :tasks_supervisor)
 
     # On the client
-    Task.Sup.async({ :tasks_sup, :remote@local }, fn -> do_work() end)
+    Task.Supervisor.async({ :tasks_supervisor, :remote@local }, fn -> do_work() end)
 
 This is similar to the `:rpc` funcitonality except you have explicitly control of the supervisor (instead of an internal `:rex` one) also allowing tasks to be supervised dynamically.
 
