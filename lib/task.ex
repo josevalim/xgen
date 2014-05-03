@@ -160,14 +160,14 @@ defmodule Task do
   of `5000`. In case the task process dies, this function will
   exit with the same reason as the task.
   """
-  @spec await(t, timeout) :: term
-  def await(%Task{pid: process, ref: ref}=task, timeout \\ 5000) do
+  @spec await(t, timeout) :: term | no_return
+  def await(%Task{ref: ref}=task, timeout \\ 5000) do
     receive do
       {^ref, reply} ->
         Process.demonitor(ref, [:flush])
         reply
       {:DOWN, ^ref, _, _, :noconnection} ->
-        exit {:nodedown, get_node(process)}, task, timeout
+        exit {:nodedown, get_node(task.pid)}, task, timeout
       {:DOWN, ^ref, _, _, reason} ->
         exit reason, task, timeout
     after
@@ -175,6 +175,52 @@ defmodule Task do
         Process.demonitor(ref, [:flush])
         exit :timeout, task, timeout
     end
+  end
+
+  @doc """
+  Receives a group of tasks and a message and finds
+  a task that matches the given message.
+
+  This function returns a tuple with the task and the
+  returned value in case the message matches a task that
+  exited with success, it raises in case the found task
+  failed or nil if no task was found.
+
+  This function is useful in situations where multiple
+  tasks are spawned and their results are collected just
+  later on. For example, a GenServer can spawn tasks,
+  store the tasks in a list and later use `Task.find/2`
+  to see if upcoming messages are from any of the tasks.
+  """
+  @spec find([t], any) :: {term, t} | nil | no_return
+  def find(tasks, msg)
+
+  def find(tasks, {ref, reply}) when is_reference(ref) do
+    Enum.find_value tasks, fn
+      %Task{ref: task_ref} = t when ref == task_ref ->
+        Process.demonitor(ref, [:flush])
+        {reply, t}
+      %Task{} ->
+        nil
+    end
+  end
+
+  def find(tasks, {:DOWN, ref, _, _, reason}) when is_reference(ref) do
+    Enum.each tasks, fn
+      %Task{ref: task_ref} = t when ref == task_ref ->
+        if reason == :noconnection do
+          exit {:nodedown, get_node(t.pid)}, t, 0
+        else
+          exit reason, t, 0
+        end
+      %Task{} ->
+        nil
+    end
+    nil
+  end
+
+  def find(_tasks, _msg) do
+    nil
   end
 
   defp exit(reason, task, timeout) do

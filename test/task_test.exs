@@ -91,6 +91,16 @@ defmodule TaskTest do
     assert catch_noconnection(self) == {:nodedown, self}
   end
 
+  test "find/2" do
+    task = %Task{ref: make_ref}
+    assert Task.find([task], {make_ref, :ok}) == nil
+    assert Task.find([task], {task.ref, :ok}) == {:ok, task}
+
+    assert Task.find([task], {:DOWN, make_ref, :process, self, :kill}) == nil
+    assert catch_exit(Task.find([task], {:DOWN, task.ref, :process, self, :kill})) ==
+           {:kill, {Task, :await, [task, 0]}}
+  end
+
   defp catch_noconnection(process) do
     ref  = make_ref()
     task = %Task{ref: ref, pid: process}
