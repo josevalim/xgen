@@ -14,7 +14,7 @@ This README provides installation instructions and the overall description of th
 
 ## Installation
 
-This project requires Elixir v0.13.0 or later. To install, just add it to your `deps`:
+This project requires Elixir v0.13.1 or later. To install, just add it to your `deps`:
 
     def deps do
       [{:xgen, github: "josevalim/xgen"}]
@@ -138,8 +138,6 @@ The Agent module provides a basic server implementation that allows state to be 
     end
 
 Note that agents still provide a segregation in between the client and server APIs, as seen in GenServers. In particular, all code inside the function passed to the agent is executed by the agent. This distinction is important because you may want to avoid expensive operations inside the agent, as it will effectively block the agent until the request is fullfilled.
-
-Agents have some drawbacks when it comes to rolling up code in a distributed environment and as such are still under discussion.
 
 ## License
 
