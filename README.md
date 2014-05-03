@@ -89,10 +89,6 @@ Here is an example:
     # Start the supervisor with our one children
     {:ok, pid} = Supervisor.start_link(children, strategy: :one_for_one)
 
-## Application
-
-xgen also provides an Application module. The goal of the `Application` module is to provide the application callback and a set of convenience functions for working with the application environment and the application directory (as in Erlang).
-
 ## Task
 
 xgen adds a Task module which is useful for spawning processes that compute a value to be retrieved later on:
