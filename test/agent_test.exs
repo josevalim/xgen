@@ -25,4 +25,24 @@ defmodule AgentTest do
     assert Agent.stop(:agent) == :ok
     assert Process.info(pid, :registered_name) == nil
   end
+
+  test ":sys.change_code/4 with mfa" do
+    { :ok, pid } = Agent.start_link(fn -> %{} end)
+    :ok = :sys.suspend(pid)
+    mfa = { Map, :put, [:hello, :world] }
+    assert :sys.change_code(pid, __MODULE__, "vsn", mfa) == :ok
+    :ok = :sys.resume(pid)
+    assert Agent.get(pid, &Map.get(&1, :hello)) == :world
+    assert Agent.stop(pid) == :ok
+  end
+
+  test ":sys.change_code/4 with raising mfa" do
+    { :ok, pid } = Agent.start_link(fn -> %{} end)
+    :ok = :sys.suspend(pid)
+    mfa = { :erlang, :error, [] }
+    assert match?({ :error, _ }, :sys.change_code(pid, __MODULE__, "vsn", mfa))
+    :ok = :sys.resume(pid)
+    assert Agent.get(pid, &(&1)) == %{}
+    assert Agent.stop(pid) == :ok
+  end
 end

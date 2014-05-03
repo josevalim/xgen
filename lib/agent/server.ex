@@ -36,6 +36,10 @@ defmodule Agent.Server do
     super(msg, state)
   end
 
+  def code_change(_old, state, { m, f, a }) do
+    {:ok, apply(m, f, [state|a])}
+  end
+
   def terminate(_reason, _state) do
     # There is a race condition if the agent is
     # restarted too fast and it is registered.

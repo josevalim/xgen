@@ -64,6 +64,37 @@ defmodule Agent do
 
   A GenEvent is bound to the same name registering rules as a `GenServer`.
   Read more about it in the `GenServer` docs.
+
+  ## A word on distributed agents
+
+  It is important to consider the limitation of distributed agents. Agents
+  work by sending anonymous functions in between the caller and the agent.
+  In a distributed setup with multiple nodes, agents only work if the caller
+  (client) and the agent have the same version of a given module.
+
+  This setup may exhibit issues when doing "rolling upgrades". By rolling
+  upgrades we mean that you desire to deploy a new version your software
+  by *shutting down* some of your nodes and replace them by nodes running
+  a new version of the software. In this setup, part of your environment
+  will have one version of a given module and other part another version
+  of the same module, which may lead agents to crash. That said, if you
+  plan to run on distributed environments, agents should likely be avoided.
+
+  Note however agents work fine if you want to perform hot code swap, as
+  hot code swapping keeps both the old and new versions of a given module.
+  We detail how to do hot code swapping with agents in the next section.
+
+  ## Hot code swapping
+
+  An agent can have its code hot swapped live by simply passing a module,
+  function and args tuple to the update instruction. For example, imagine
+  you have an agent named `:sample` and you want to convert its inner state
+  from some dict structure to a map. It can be done with the following
+  instruction:
+
+      {:update, :sample, {:advanced, {Enum, :into, [%{}]}}}
+
+  The agent state will be added as first argument of the arguments list.
   """
 
   @typedoc "Return values of `start*` functions"
