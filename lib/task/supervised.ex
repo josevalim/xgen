@@ -10,7 +10,28 @@ defmodule Task.Supervised do
   end
 
   def async(caller, {module, fun, args}) do
-    ref = receive do: ({^caller, ref} -> ref)
+    ref =
+      # There is a race condition on this operation when working accross
+      # node that manifests if a `Task.Supervisor.async/1` call is made
+      # while the supervisor is busy spawning previous tasks.
+      #
+      # Imagine the following workflow:
+      #
+      # 1. The nodes disconnect
+      # 2. The async call fails and is caught, the calling process does not exit
+      # 3. The task is spawned and links to the calling process, causing the nodes to reconnect
+      # 4. The calling process has not exited and so does not send its monitor reference
+      # 5. The spawned task waits forever for the monitor reference so it can begin
+      #
+      # We have solved this by specifying a timeout of 5000 seconds.
+      # Given no work is done in the client in between the task start and
+      # sending the reference, 5000 should be enough to not raise false
+      # negatives unless the nodes are indeed not available.
+      receive do
+        {^caller, ref} -> ref
+      after
+        5000 -> exit(:timeout)
+      end
 
     try do
       apply(module, fun, args)
