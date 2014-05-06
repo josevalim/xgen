@@ -192,7 +192,7 @@ defmodule GenEvent do
 
       @doc false
       def handle_call(_request, state) do
-        {:ok, :ok, state}
+        {:ok, {:error, :bad_call}, state}
       end
 
       @doc false

@@ -11,6 +11,10 @@ defmodule GenEventTest do
     def handle_call(:messages, messages) do
       {:ok, Enum.reverse(messages), []}
     end
+
+    def handle_call(call, state) do
+      super(call, state)
+    end
   end
 
   defmodule SlowHandler do
@@ -43,7 +47,7 @@ defmodule GenEventTest do
     assert GenEvent.call(pid, LoggerHandler, :messages) == [1, 2]
     assert GenEvent.call(pid, LoggerHandler, :messages) == []
 
-    assert GenEvent.call(pid, UnknownHandler, :messages) == {:error, :bad_module}
+    assert GenEvent.call(pid, LoggerHandler, :whatever)  == {:error, :bad_call}
     assert GenEvent.call(pid, UnknownHandler, :messages) == {:error, :bad_module}
 
     assert GenEvent.remove_handler(pid, LoggerHandler, []) == :ok
