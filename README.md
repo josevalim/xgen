@@ -16,15 +16,19 @@ This README provides installation instructions and the overall description of th
 
 This project requires Elixir v0.13.1 or later. To install, just add it to your `deps`:
 
-    def deps do
-      [{:xgen, github: "josevalim/xgen"}]
-    end
+``` elixir
+def deps do
+  [{:xgen, github: "josevalim/xgen"}]
+end
+```
 
 And list it as a runtime dependency for your application:
 
-    def application do
-      [applications: [:xgen]]
-    end
+``` elixir
+def application do
+  [applications: [:xgen]]
+end
+```
 
 Run `mix deps.get` and you are good to go.
 
@@ -34,11 +38,17 @@ This tool provides a `GenServer` module which is quite similar to the stock gen 
 
 * Both `start/3` and `start_link/3` expect the module name, the server arguments and a set of options. In order to register the server locally (or globally), a single name option can be used:
 
-        GenServer.start_link(MyServer, [], name: MyServer)
+   ``` elixir
+   GenServer.start_link(MyServer, [], name: MyServer)
+   ```
+
 
    Treating local and global as options feels more natural than the Erlang syntax:
 
-        :gen_server.start_link({:local, MyServer}, MyServer, [], [])
+   ``` elixir
+   :gen_server.start_link({:local, MyServer}, MyServer, [], [])
+   ```
+
 
 * A developer can `use GenServer` to get a default implementation for all GenServer callbacks;
 
@@ -48,18 +58,21 @@ In fact, the differences above apply to all other modules below, and as such we 
 
 The main difference that comes with Elixir's GenEvent is that events are streamable:
 
-    {:ok, pid} = GenEvent.start_link()
-    stream = GenEvent.stream(pid)
+``` elixir
+{:ok, pid} = GenEvent.start_link()
+stream = GenEvent.stream(pid)
 
-    # Spawn a new process to print the events
-    spawn_link fn ->
-      for event <- stream do
-        IO.puts "Got: #{IO.inspect(event)}"
-      end
-    end
+# Spawn a new process to print the events
+spawn_link fn ->
+  for event <- stream do
+    IO.puts "Got: #{IO.inspect(event)}"
+  end
+end
 
-    GenEvent.notify(pid, :hello)
-    GenEvent.sync_notify(pid, :world)
+GenEvent.notify(pid, :hello)
+GenEvent.sync_notify(pid, :world)
+```
+
 
 Streams are guaranteed to be safe since a subscription is only started when streaming starts and, in case the streaming process dies, the handler is removed from the event manager.
 
@@ -77,35 +90,44 @@ Supervisors in xgen work similarly to OTP's supervisors except by:
 
 Here is an example:
 
-    # Import helpers for defining supervisors
-    import Supervisor.Spec
+``` elixir
+# Import helpers for defining supervisors
+import Supervisor.Spec
 
-    # We are going to supervise the Stack server which will
-    # be started with a argument containing [:hello]
-    children = [
-      worker(Stack, [[:hello]])
-    ]
+# We are going to supervise the Stack server which will
+# be started with a argument containing [:hello]
+children = [
+  worker(Stack, [[:hello]])
+]
 
-    # Start the supervisor with our one children
-    {:ok, pid} = Supervisor.start_link(children, strategy: :one_for_one)
+# Start the supervisor with our one children
+{:ok, pid} = Supervisor.start_link(children, strategy: :one_for_one)
+```
+
 
 ## Task
 
 xgen adds a Task module which is useful for spawning processes that compute a value to be retrieved later on:
 
-    task = Task.async(fn -> do_some_work() end)
-    res  = do_some_other_work()
-    res + Task.await(task)
+``` elixir
+task = Task.async(fn -> do_some_work() end)
+res  = do_some_other_work()
+res + Task.await(task)
+```
+
 
 Although tasks map directy to the underlying OTP semantics (using processes), by providing a common pattern, we allow other parts of the standard library to rely on them.
 
 Tasks also ship with a `Task.Supervisor` module, which can be used to supervise tasks and even allow tasks to be spawned on remote nodes:
 
-    # In the remote node
-    Task.Supervisor.start_link(local: :tasks_supervisor)
+``` elixir
+# In the remote node
+Task.Supervisor.start_link(local: :tasks_supervisor)
 
-    # On the client
-    Task.Supervisor.async({:tasks_supervisor, :remote@local}, fn -> do_work() end)
+# On the client
+Task.Supervisor.async({:tasks_supervisor, :remote@local}, fn -> do_work() end)
+```
+
 
 This is similar to the `:rpc` funcitonality except you have explicitly control of the supervisor (instead of an internal `:rex` one) also allowing tasks to be supervised dynamically.
 
@@ -117,25 +139,28 @@ Often in Elixir there is a need to share or store state that must be accessed fr
 
 The Agent module provides a basic server implementation that allows state to be retrieved and updated via a simple API. For example, in the Mix tool that ships with Elixir, we need to keep a set of all tasks executed by a given project. Since this set is shared, we can implement it with an Agent:
 
-    defmodule Mix.TasksServer do
-      def start_link do
-        Agent.start_link(fn -> HashSet.new end, local: __MODULE__)
-      end
+``` elixir
+defmodule Mix.TasksServer do
+  def start_link do
+    Agent.start_link(fn -> HashSet.new end, local: __MODULE__)
+  end
 
-      @doc "Checks if the task has already executed"
-      def executed?(task, project) do
-        item = {task, project}
-        Agent.get(__MODULE__, fn set ->
-          item in set
-        end)
-      end
+  @doc "Checks if the task has already executed"
+  def executed?(task, project) do
+    item = {task, project}
+    Agent.get(__MODULE__, fn set ->
+      item in set
+    end)
+  end
 
-      @doc "Marks a task as executed"
-      def put_task(task, project) do
-        item = {task, project}
-        Agent.update(__MODULE__, &Set.put(item, &1))
-      end
-    end
+  @doc "Marks a task as executed"
+  def put_task(task, project) do
+    item = {task, project}
+    Agent.update(__MODULE__, &Set.put(item, &1))
+  end
+end
+```
+
 
 Note that agents still provide a segregation in between the client and server APIs, as seen in GenServers. In particular, all code inside the function passed to the agent is executed by the agent. This distinction is important because you may want to avoid expensive operations inside the agent, as it will effectively block the agent until the request is fullfilled.
 
