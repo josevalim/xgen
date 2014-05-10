@@ -454,41 +454,10 @@ defimpl Enumerable, for: GenEvent do
     {:ok, state}
   end
 
-  def reduce(%{manager: manager, id: id, timeout: timeout, duration: duration}, acc, fun) do
-    start_fun =
-      fn ->
-        {mon_pid, mon_ref} = add_handler(manager, id, duration)
-        send mon_pid, {:UP, mon_ref, self()}
-
-        receive do
-          # The subscription process gave us a go.
-          {:UP, ^mon_ref, manager_pid} ->
-            {mon_ref, mon_pid, manager_pid}
-          # The subscription process died due to an abnormal reason.
-          {:DOWN, ^mon_ref, _, _, reason} ->
-            exit({reason, {GenEvent, :stream, [manager]}})
-        end
-      end
-
-    next_fun =
-      fn {mon_ref, _, _} = acc ->
-        receive do
-          {^mon_ref, event} -> {event, acc}
-          {:DOWN, ^mon_ref, _, _, :normal} -> nil
-          {:DOWN, ^mon_ref, _, _, reason} ->
-            exit({reason, {GenEvent, :stream, [manager]}})
-        after
-          timeout ->
-            exit({:timeout, {GenEvent, :stream, [manager]}})
-        end
-      end
-
-    stop_fun =
-      fn {mon_ref, _mon_pid, manager_pid} ->
-        remove_handler(mon_ref, manager_pid, id)
-        flush_events(mon_ref)
-      end
-
+  def reduce(stream, acc, fun) do
+    start_fun = fn() -> start(stream) end
+    next_fun = &next(stream, &1)
+    stop_fun = &stop(stream, &1)
     Stream.resource(start_fun, next_fun, stop_fun).(acc, fun)
   end
 
@@ -498,6 +467,37 @@ defimpl Enumerable, for: GenEvent do
 
   def member?(_stream, _item) do
     {:error, __MODULE__}
+  end
+
+  defp start(%{manager: manager, id: id, duration: duration} = stream) do
+    {mon_pid, mon_ref} = add_handler(manager, id, duration)
+    send mon_pid, {:UP, mon_ref, self()}
+
+    receive do
+      # The subscription process gave us a go.
+      {:UP, ^mon_ref, manager_pid} ->
+        {mon_ref, manager_pid}
+        # The subscription process died due to an abnormal reason.
+      {:DOWN, ^mon_ref, _, _, reason} ->
+        exit({reason, {__MODULE__, :start, [stream]}})
+    end
+  end
+
+  defp next(%{timeout: timeout} = stream, {mon_ref, _manager_pid} = acc) do
+    receive do
+      {^mon_ref, event} -> {event, acc}
+      {:DOWN, ^mon_ref, _, _, :normal} -> nil
+      {:DOWN, ^mon_ref, _, _, reason} ->
+        exit({reason, {__MODULE__, :next, [stream, acc]}})
+    after
+      timeout ->
+        exit({:timeout, {__MODULE__, :next, [stream, acc]}})
+    end
+  end
+
+  defp stop(%{id: id}, {mon_ref, manager_pid}) do
+    remove_handler(mon_ref, manager_pid, id)
+    flush_events(mon_ref)
   end
 
   defp add_handler(manager, id, duration) do

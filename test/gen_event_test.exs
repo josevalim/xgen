@@ -134,7 +134,7 @@ defmodule GenEventTest do
     end
 
     assert_receive {:EXIT, ^pid,
-                     {:timeout, {GenEvent, :stream, [_]}}}, @receive_timeout
+                     {:timeout, {Enumerable.GenEvent, :next, [_, _]}}}, @receive_timeout
   end
 
   test "stream/2 with error/timeout on subscription" do
@@ -169,7 +169,7 @@ defmodule GenEventTest do
     Process.flag(:trap_exit, true)
     GenEvent.stop(pid)
     assert_receive {:EXIT, ^stream_pid,
-                     {:shutdown, {GenEvent, :stream, [_]}}}, @receive_timeout
+                     {:shutdown, {Enumerable.GenEvent, :next, [_, _]}}}, @receive_timeout
   end
 
   test "stream/2 with cancel streams" do
@@ -209,7 +209,7 @@ defmodule GenEventTest do
     Process.flag(:trap_exit, true)
     GenEvent.swap_handler(pid, handler, :swap_handler, LogHandler, [])
     assert_receive {:EXIT, ^stream_pid,
-                     {{:swapped, LogHandler, _}, {GenEvent, :stream, [_]}}}, @receive_timeout
+                     {{:swapped, LogHandler, _}, {Enumerable.GenEvent, :next, [_, _]}}}, @receive_timeout
   end
 
   test "stream/2 with duration" do
@@ -275,7 +275,21 @@ defmodule GenEventTest do
     Process.exit(pid, :kill)
     assert_receive {:EXIT, ^pid, :killed}, @receive_timeout
     assert_receive {:EXIT, ^stream_pid,
-                     {:killed, {GenEvent, :stream, [_]}}}, @receive_timeout
+                     {:killed, {Enumerable.GenEvent, :next, [_,_]}}}, @receive_timeout
+  end
+
+  test "stream/2 with manager not alive" do
+    # Start a manager and subscribers
+    stream = GenEvent.stream(:does_not_exit)
+
+    parent = self()
+    stream_pid = spawn_link fn ->
+      send parent, Enum.to_list(stream)
+    end
+
+    Process.flag(:trap_exit, true)
+    assert_receive {:EXIT, ^stream_pid,
+                     {:noproc, {Enumerable.GenEvent, :start, [_]}}}, @receive_timeout
   end
 
   test "stream/2 with manager unregistered" do
