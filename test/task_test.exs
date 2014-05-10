@@ -97,8 +97,9 @@ defmodule TaskTest do
     assert Task.find([task], {task.ref, :ok}) == {:ok, task}
 
     assert Task.find([task], {:DOWN, make_ref, :process, self, :kill}) == nil
-    assert catch_exit(Task.find([task], {:DOWN, task.ref, :process, self, :kill})) ==
-           {:kill, {Task, :await, [task, 0]}}
+    msg = {:DOWN, task.ref, :process, self, :kill}
+    assert catch_exit(Task.find([task], msg)) ==
+           {:kill, {Task, :find, [[task], msg]}}
   end
 
   defp catch_noconnection(process) do

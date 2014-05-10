@@ -167,13 +167,14 @@ defmodule Task do
         Process.demonitor(ref, [:flush])
         reply
       {:DOWN, ^ref, _, _, :noconnection} ->
-        exit {:nodedown, get_node(task.pid)}, task, timeout
+        mfa = {__MODULE__, :await, [task, timeout]}
+        exit({{:nodedown, get_node(task.pid)}, mfa})
       {:DOWN, ^ref, _, _, reason} ->
-        exit reason, task, timeout
+        exit({reason, {__MODULE__, :await, [task, timeout]}})
     after
       timeout ->
         Process.demonitor(ref, [:flush])
-        exit :timeout, task, timeout
+        exit({:timeout, {__MODULE__, :await, [task, timeout]}})
     end
   end
 
@@ -205,13 +206,13 @@ defmodule Task do
     end
   end
 
-  def find(tasks, {:DOWN, ref, _, _, reason}) when is_reference(ref) do
+  def find(tasks, {:DOWN, ref, _, _, reason} = msg) when is_reference(ref) do
     Enum.each tasks, fn
       %Task{ref: task_ref} = t when ref == task_ref ->
         if reason == :noconnection do
-          exit {:nodedown, get_node(t.pid)}, t, 0
+          exit({{:nodedown, get_node(t.pid)}, {__MODULE__, :find, [tasks, msg]}})
         else
-          exit reason, t, 0
+          exit({reason, {__MODULE__, :find, [tasks, msg]}})
         end
       %Task{} ->
         nil
@@ -221,10 +222,6 @@ defmodule Task do
 
   def find(_tasks, _msg) do
     nil
-  end
-
-  defp exit(reason, task, timeout) do
-    exit {reason, {Task, :await, [task, timeout]}}
   end
 
   defp get_node({_, n}) when is_atom(n), do: n
