@@ -207,17 +207,15 @@ defmodule Task do
   end
 
   def find(tasks, {:DOWN, ref, _, _, reason} = msg) when is_reference(ref) do
-    Enum.each tasks, fn
-      %Task{ref: task_ref} = t when ref == task_ref ->
-        if reason == :noconnection do
-          exit({{:nodedown, get_node(t.pid)}, {__MODULE__, :find, [tasks, msg]}})
-        else
-          exit({reason, {__MODULE__, :find, [tasks, msg]}})
-        end
+    find = fn(%Task{ref: task_ref}) -> task_ref == ref end
+    case Enum.find(tasks, find) do
+      %Task{pid: pid} when reason == :noconnection ->
+        exit({{:nodedown, get_node(pid)}, {__MODULE__, :find, [tasks, msg]}})
       %Task{} ->
+        exit({reason, {__MODULE__, :find, [tasks, msg]}})
+      nil ->
         nil
     end
-    nil
   end
 
   def find(_tasks, _msg) do
