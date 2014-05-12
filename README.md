@@ -1,5 +1,7 @@
 # xgen
 
+**Note:** xgen has been merged into Elixir and will be available from v0.13.3 forward.
+
 When v0.13 was released, we outlined the next steps regarding integrating Elixir and Mix with OTP. The outlined steps were:
 
 1. Integrate application configuration (provided by OTP) right into Mix;
